@@ -9,3 +9,8 @@
 
 # no Mac dir files
 .DS_Store
+
+# no data or figures
+data/
+results/
+figures/

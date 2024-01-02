@@ -32,6 +32,9 @@ mpl.rcParams['axes.titlesize'] = 12 * helvetica_scale_factor
 #mpl.rcParams['text.usetex'] = True
 #mpl.rcParams['text.latex.preamble'] = [r'\usepackage{amsmath}']
 
+# Make figure background transparent
+mpl.rcParams['figure.facecolor'] = (0, 0, 0, 0.)
+
 cm = plt.get_cmap('tab10')
 color_dict = {'blue':cm(0), 'orange':cm(1), 'green':cm(2), 'red':cm(3), 'pink':cm(6), 'olive':cm(8), 'cyan':cm(9)}
 

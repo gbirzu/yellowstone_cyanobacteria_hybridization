@@ -7,9 +7,7 @@ import seq_processing_utils as seq_utils
 import pangenome_utils as pg_utils
 import scipy.cluster.hierarchy as hclust
 import scipy.spatial.distance as distance
-#from pangenome_utils import PangenomeMap
 from metadata_map import MetadataMap
-#from make_locus_geneID_maps import make_locus_geneID_map
 from Bio.Seq import Seq
 from Bio import SeqFeature
 from Bio.SeqRecord import SeqRecord
@@ -17,7 +15,6 @@ from Bio.Align import MultipleSeqAlignment
 from Bio import SeqIO
 from Bio import AlignIO
 from Bio.Phylo.PAML import codeml
-#from Bio.Alphabet import IUPAC
 
 
 def calculate_ld_matrices_vectorized(alignment, reference=0, unbiased=True, convert_to_numeric=True):
@@ -731,6 +728,30 @@ def read_and_process_alignment(f_aln, sites='all'):
     aln_sites = get_alignment_sites(trimmed_aln, x_sites)
 
     return aln_sites, x_sites
+
+
+def read_main_cloud_alignment(f_aln, pangenome_map, metadata, dc_dict={'A':0.1, 'Bp':0.1, 'C':0.}, excluded_contigs=[]):
+    aln = seq_utils.read_alignment(f_aln)
+
+    # Remove sequences from excluded contigs
+    if len(excluded_contigs) > 0:
+        rec_ids = np.array([rec.id for rec in aln])
+        contig_ids = np.array(['_'.join(r.split('_')[:2]) for r in rec_ids])
+        filtered_rec_ids = rec_ids[~np.isin(contig_ids, excluded_contigs)]
+        aln = get_subsample_alignment(aln, filtered_rec_ids)
+
+    species_sorted_gene_ids = sort_aln_rec_ids(aln, pangenome_map, metadata)
+    species_main_cloud_alns = []
+    for species in species_sorted_gene_ids:
+        if len(species_sorted_gene_ids[species]) > 0:
+            aln_species = get_subsample_alignment(aln, species_sorted_gene_ids[species])
+            seq_ids = np.array([rec.id for rec in aln_species])
+            d_consensus = calculate_consensus_distance(aln_species, method='jc69')
+            filtered_seq_ids = seq_ids[d_consensus <= dc_dict[species]]
+            species_main_cloud_alns.append(get_subsample_alignment(aln_species, filtered_seq_ids))
+
+    mc_aln = stack_alignments(species_main_cloud_alns)
+    return mc_aln
 
 
 def read_species_og_alignment(og_id, f_aln, pangenome_map, species_sag_ids):
