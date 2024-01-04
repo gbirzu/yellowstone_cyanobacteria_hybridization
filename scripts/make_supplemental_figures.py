@@ -289,7 +289,7 @@ def plot_gene_polymorphisms_figure(num_site_alleles, low_diversity_ogs, high_div
     else:
         legend = True
     plot_alpha_loci_diversity(ax, num_site_alleles, low_diversity_ogs, high_diversity_ogs, legend=legend)
-    ax.set_xticks([1E-5, 1E-4, 1E-3, 1E-2, 1E-1])
+    ax.set_xticks([0, 1E-4, 1E-3, 1E-2, 1E-1])
 
     plt.tight_layout()
     plt.savefig(f'{args.figures_dir}S{fig_count}_{species}_diversity_partition.pdf')
@@ -356,19 +356,20 @@ def generate_polymorphic_sites_null(og_ids, sag_ids, pangenome_map, alignments_d
     return hist_null, np.array(x_null)
 
 
-def plot_alpha_loci_diversity(ax, num_site_alleles, low_diversity_ogs, high_diversity_ogs, epsilon=1E-5, xlim=(9E-6, 0.25), num_bins=50, legend=True):
-    ax.set_xscale('log')
-    #ax.set_yscale('log')
-    #x_bins = np.linspace(*xlim, num_bins)
-    x_bins = np.geomspace(*xlim, num_bins)
-    ax.hist(num_site_alleles.loc[low_diversity_ogs, 'piS'] + epsilon, bins=x_bins, density=False, label='non-hybrid loci', alpha=0.5)
-    ax.hist(num_site_alleles.loc[high_diversity_ogs, 'piS'] + epsilon, bins=x_bins, density=False, label='hybrid loci', alpha=0.5)
+def plot_alpha_loci_diversity(ax, num_site_alleles, low_diversity_ogs, high_diversity_ogs, epsilon=2E-5, xlim=(2E-5, 0.25), num_bins=50, legend=True):
+    ax.set_xscale('symlog', linthresh=epsilon, linscale=0.1)
+    ax.set_xlim(0., xlim[-1])
+    temp = np.geomspace(epsilon, 0.25, num_bins)
+    x_bins = np.concatenate([[0], temp])
+    ax.hist(num_site_alleles.loc[low_diversity_ogs, 'piS'], bins=x_bins, density=False, label='non-hybrid loci', alpha=0.5)
+    ax.hist(num_site_alleles.loc[high_diversity_ogs, 'piS'], bins=x_bins, density=False, label='hybrid loci', alpha=0.5)
+    ax.axvline(epsilon, ls='--', color='k', lw=1)
 
     if legend:
         ax.legend(fontsize=10, frameon=False)
 
 
-def plot_genomic_trench_diversity(syna_num_site_alleles, synbp_num_site_alleles, control_loci, rng, args, fig_count, num_bins=20, label_fs=14, epsilon=1E-5):
+def plot_genomic_trench_diversity(syna_num_site_alleles, synbp_num_site_alleles, control_loci, rng, args, fig_count, num_bins=20, label_fs=14, epsilon=2E-5):
     genomic_troughs_df = pd.read_csv(f'{args.results_dir}supplement/genomic_trench_loci_annotations.tsv', sep='\t', index_col=0)
     genomic_troughs_df.sort_values('CYB_tag', inplace=True)
     genomic_troughs_df['CYB_id'] = genomic_troughs_df['CYB_tag'].str.split('_').str[1].astype(float)
@@ -382,18 +383,25 @@ def plot_genomic_trench_diversity(syna_num_site_alleles, synbp_num_site_alleles,
 
     fig = plt.figure(figsize=(double_col_width, 0.8 * single_col_width))
     ax = fig.add_subplot(121)
-    ax.set_xscale('log')
+    ax.set_xlim(0, 1)
+    #ax.set_xscale('log')
+    ax.set_xscale('symlog', linthresh=epsilon, linscale=0.1)
     ax.set_xlabel('synonymous diversity, $\pi_S$', fontsize=label_fs)
-    ax.set_xticks([1E-5, 1E-4, 1E-3, 1E-2, 1E-1])
+    #ax.set_xticks([1E-5, 1E-4, 1E-3, 1E-2, 1E-1])
+    ax.set_xticks([0, 1E-4, 1E-3, 1E-2, 1E-1, 1])
     ax.set_ylabel('counts', fontsize=label_fs)
+    ax.axvline(epsilon, ls='--', color='k', lw=1)
 
     syna_gt_idx = [g for g in genomic_troughs_df.index if g in syna_num_site_alleles.index.values]
     syna_control_og_list = [g for g in control_loci if (g not in syna_gt_idx) and (g in syna_num_site_alleles.index.values)]
     syna_control_idx = rng.choice(syna_control_og_list, size=len(syna_gt_idx), replace=False)
 
-    x_bins = np.geomspace(1E-5, 1, num_bins)
-    ax.hist(syna_num_site_alleles.loc[syna_gt_idx, 'piS'] + epsilon, bins=x_bins, color='tab:purple', alpha=0.5, label=r'$\alpha$ troughs')
-    ax.hist(syna_num_site_alleles.loc[syna_control_idx, 'piS'] + epsilon, bins=x_bins, color='tab:orange', alpha=0.5, label=r'$\alpha$ non-hybrid')
+    #x_bins = np.geomspace(1E-5, 1, num_bins)
+    x_bins = np.concatenate([[0], np.geomspace(epsilon, 1, num_bins)])
+    #ax.hist(syna_num_site_alleles.loc[syna_gt_idx, 'piS'] + epsilon, bins=x_bins, color='tab:purple', alpha=0.5, label=r'$\alpha$ troughs')
+    #ax.hist(syna_num_site_alleles.loc[syna_control_idx, 'piS'] + epsilon, bins=x_bins, color='tab:orange', alpha=0.5, label=r'$\alpha$ non-hybrid')
+    ax.hist(syna_num_site_alleles.loc[syna_gt_idx, 'piS'], bins=x_bins, color='tab:purple', alpha=0.5, label=r'$\alpha$ troughs')
+    ax.hist(syna_num_site_alleles.loc[syna_control_idx, 'piS'], bins=x_bins, color='tab:orange', alpha=0.5, label=r'$\alpha$ non-hybrid')
     ax.legend(loc='upper left', frameon=False)
 
     print(syna_num_site_alleles.loc[syna_gt_idx, 'piS'].mean(), syna_num_site_alleles.loc[syna_control_idx, 'piS'].mean())
@@ -403,10 +411,17 @@ def plot_genomic_trench_diversity(syna_num_site_alleles, synbp_num_site_alleles,
     synbp_control_idx = rng.choice(synbp_control_og_list, size=len(synbp_gt_idx), replace=False)
 
     ax = fig.add_subplot(122)
-    ax.set_xscale('log')
+    #ax.set_xscale('log')
+    ax.set_xlim(0, 1)
+    ax.set_xscale('symlog', linthresh=epsilon, linscale=0.1)
     ax.set_xlabel('synonymous diversity, $\pi_S$', fontsize=label_fs)
-    ax.set_xticks([1E-5, 1E-4, 1E-3, 1E-2, 1E-1])
+    #ax.set_xticks([1E-5, 1E-4, 1E-3, 1E-2, 1E-1])
+    ax.set_xticks([0, 1E-4, 1E-3, 1E-2, 1E-1, 1])
     ax.set_ylabel('counts', fontsize=label_fs)
+    ax.axvline(epsilon, ls='--', color='k', lw=1)
+
+    #ax.hist(synbp_num_site_alleles.loc[synbp_gt_idx, 'piS'] + epsilon, bins=x_bins, color='tab:purple', alpha=0.5, label=r'$\beta$ troughs')
+    #ax.hist(synbp_num_site_alleles.loc[synbp_control_idx, 'piS'] + epsilon, bins=x_bins, color='tab:blue', alpha=0.5, label=r'$\beta$ core')
     ax.hist(synbp_num_site_alleles.loc[synbp_gt_idx, 'piS'] + epsilon, bins=x_bins, color='tab:purple', alpha=0.5, label=r'$\beta$ troughs')
     ax.hist(synbp_num_site_alleles.loc[synbp_control_idx, 'piS'] + epsilon, bins=x_bins, color='tab:blue', alpha=0.5, label=r'$\beta$ core')
     ax.legend(loc='upper left', frameon=False)
@@ -430,6 +445,10 @@ def plot_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alleles, s
     print('\n\n')
 
     label_fs = 14
+    epsilon = 2E-5
+    linscale = 0.25
+    ms = 6**2
+    lw = 0.1
     colors_dict = {'A':'tab:orange', 'Bp':'tab:blue', 'C':'tab:green', 'O':'tab:purple'}
 
     fig = plt.figure(figsize=(double_col_width, 0.8 * single_col_width))
@@ -439,9 +458,13 @@ def plot_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alleles, s
     #ax.set_xticklabels([r'$\beta$', r'$\gamma$', r'$X$'], fontsize=label_fs)
     #ax.set_xticklabels([r'Bp', r'C', 'X'], fontsize=label_fs)
     ax.set_ylabel(r'synonymous diversity, $\pi_S$', fontsize=label_fs)
-    ax.set_ylim(8E-6, 1)
-    ax.set_yscale('log')
+    #ax.set_ylim(8E-6, 1)
+    #ax.set_yscale('log')
+    ax.set_yscale('symlog', linthresh=epsilon, linscale=linscale)
+    ax.set_ylim(-epsilon, 1)
+    ax.set_yticks([0, 1E-4, 1E-3, 1E-2, 1E-1, 1])
     ax.axhline(syna_mean_diversity, lw=2, color=colors_dict['A'], alpha=0.5)
+    ax.axhline(epsilon, ls='--', color='k', lw=1)
 
     counter = np.array([0, 0])
     for hybrid_cluster in ['Bp', 'C', 'O']:
@@ -454,14 +477,18 @@ def plot_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alleles, s
             aln_hybrids = align_utils.get_subsample_alignment(aln, hybrid_cluster_sag_ids)
             pN, pS = seq_utils.calculate_pairwise_pNpS(aln_hybrids)
             pS_values = utils.get_matrix_triangle_values(pS.values, k=1)
-            y = np.mean(pS_values) + 1E-5
+            #y = np.mean(pS_values) + 1E-5
+            y = np.mean(pS_values)
             x = np.array([x0, x0 + dx1 / 2 + dx2]) + rng.uniform(-dx1 / 2, dx1 / 2, size=2)
-            ax.scatter(x[0], y, 16, marker='o', color=colors_dict[hybrid_cluster])
+            #ax.scatter(x[0], y, 16, marker='o', color=colors_dict[hybrid_cluster])
+            ax.scatter(x[0], y, ms, marker='o', fc=colors_dict[hybrid_cluster], ec='w', lw=lw, alpha=0.6)
             if (g in synbp_num_site_alleles.index.values) and (hybrid_cluster == 'Bp'):
                 #print(g, np.mean(pS_values), synbp_num_site_alleles.loc[g, 'piS'], len(aln_hybrids))
                 yc = synbp_num_site_alleles.loc[g, 'piS']
-                ax.scatter(x[1], yc, 16, marker='s', color=colors_dict[hybrid_cluster])
-                ax.plot(x, [y, yc], c='k', lw=0.75, alpha=0.5)
+                #ax.scatter(x[1], yc, 16, marker='s', color=colors_dict[hybrid_cluster])
+                ax.scatter(x[1], yc, ms, marker='s', fc=colors_dict[hybrid_cluster], ec='w', lw=lw, alpha=0.6)
+                #ax.plot(x, [y, yc], c='k', lw=0.75, alpha=0.5)
+                ax.plot(x, [y, yc], c=colors_dict[hybrid_cluster], lw=0.75, alpha=0.6)
             else:
                 #print(g, np.mean(pS_values), len(aln_hybrids))
                 pass
@@ -475,7 +502,7 @@ def plot_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alleles, s
 
     print(counter)
     print('\n\n')
-    ax.set_yticks([1E-5, 1E-4, 1E-3, 1E-2, 1E-1, 1])
+    #ax.set_yticks([1E-5, 1E-4, 1E-3, 1E-2, 1E-1, 1])
 
     counter = np.array([0, 0])
     ax = fig.add_subplot(122)
@@ -484,8 +511,12 @@ def plot_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alleles, s
     #ax.set_xticklabels([r'$\alpha$', r'$\gamma$', 'X'], fontsize=label_fs)
     #ax.set_xticklabels([r'A', r'C', 'X'], fontsize=label_fs)
     ax.set_ylabel(r'synonymous diversity, $\pi_S$', fontsize=label_fs)
-    ax.set_ylim(8E-6, 1)
-    ax.set_yscale('log')
+    #ax.set_ylim(8E-6, 1)
+    #ax.set_yscale('log')
+    ax.set_yscale('symlog', linthresh=epsilon, linscale=linscale)
+    ax.set_ylim(-epsilon, 1)
+    ax.set_yticks([0, 1E-4, 1E-3, 1E-2, 1E-1, 1])
+    ax.axhline(epsilon, ls='--', color='k', lw=1)
     ax.axhline(synbp_mean_diversity, lw=2, color=colors_dict['Bp'], alpha=0.5)
 
     x0 = 0
@@ -499,13 +530,16 @@ def plot_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alleles, s
             aln_hybrids = align_utils.get_subsample_alignment(aln, hybrid_cluster_sag_ids)
             pN, pS = seq_utils.calculate_pairwise_pNpS(aln_hybrids)
             pS_values = utils.get_matrix_triangle_values(pS.values, k=1)
-            y = np.mean(pS_values) + 1E-5
+            #y = np.mean(pS_values) + 1E-5
+            y = np.mean(pS_values)
             x = np.array([x0, x0 + dx1 / 2 + dx2]) + rng.uniform(-dx1 / 2, dx1 / 2, size=2)
-            ax.scatter(x[0], y, 16, marker='o', color=colors_dict[hybrid_cluster])
+            #ax.scatter(x[0], y, 16, marker='o', color=colors_dict[hybrid_cluster])
+            ax.scatter(x[0], y, ms, marker='o', fc=colors_dict[hybrid_cluster], ec='w', lw=lw, alpha=0.6)
             if (g in syna_num_site_alleles.index.values) and (hybrid_cluster == 'A'):
                 #print(g, np.mean(pS_values), syna_num_site_alleles.loc[g, 'piS'], len(aln_hybrids))
                 yc = syna_num_site_alleles.loc[g, 'piS']
-                ax.scatter(x[1], yc, 16, marker='s', color=colors_dict[hybrid_cluster])
+                #ax.scatter(x[1], yc, 16, marker='s', color=colors_dict[hybrid_cluster])
+                ax.scatter(x[1], yc, ms, marker='s', fc=colors_dict[hybrid_cluster], ec='w', lw=lw, alpha=0.6)
                 ax.plot(x, [y, yc], c='k', lw=0.75, alpha=0.5)
             else:
                 #print(g, np.mean(pS_values), len(aln_hybrids))
@@ -518,7 +552,7 @@ def plot_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alleles, s
         print('\n')
 
     print(counter)
-    ax.set_yticks([1E-5, 1E-4, 1E-3, 1E-2, 1E-1, 1])
+    #ax.set_yticks([1E-5, 1E-4, 1E-3, 1E-2, 1E-1, 1])
 
     plt.tight_layout()
     plt.savefig(f'{args.figures_dir}S{fig_count}_hybrid_gene_diversity.pdf')
