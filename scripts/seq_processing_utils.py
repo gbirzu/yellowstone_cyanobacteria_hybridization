@@ -8,7 +8,6 @@ import os
 import glob
 import alignment_tools as align_utils
 import re
-import networkx as nx
 import scipy.cluster.hierarchy as hclust
 import scipy.spatial.distance as distance
 #from pangenome_utils import PangenomeMap
@@ -85,92 +84,6 @@ class AlleleFreqTable:
     def get_sagID(self, i):
         return self.sag_ids[i]
 
-
-class BifurcationTree:
-    def __init__(self, aln=None, x0=None):
-        self.graph = nx.DiGraph()
-        self.graph.add_node('root')
-
-        if aln and x0:
-            self.build_bifurcation_tree(aln, x0)
-
-    def __repr__(self):
-        return f'{self.left_tree.name}-Left Tree: {self.left_tree}\n{self.right_tree.name}-right Tree: {self.right_tree}\n'
-
-    def build_bifurcation_tree(self, aln, x0):
-        aln_arr = np.array(aln)
-        haplotuples = make_haplotype_tuples(aln_arr[:, [x0]])
-
-        for hapl in haplotuples:
-            self.graph.add_node(hapl[0])
-            self.graph.add_node(f'{hapl[0]}_left')
-            self.graph.add_node(f'{hapl[0]}_right')
-            self.graph.add_edge('root', hapl[0], weight=hapl[1])
-            self.graph.add_edge(hapl[0], f'{hapl[0]}_left', weight=hapl[1])
-            self.graph.add_edge(hapl[0], f'{hapl[0]}_right', weight=hapl[1])
-
-        for direction in ['left', 'right']:
-            level_nodes = [f'{node}_{direction}'for node in self.graph.successors('root')]
-
-            while len(level_nodes) > 0:
-                for parent_node in level_nodes:
-                    parent_haplotype = parent_node.strip(f'_{direction}')
-                    haplotuples = self.get_child_haplotype_tuples(aln_arr, parent_haplotype, x0, direction=direction)
-
-                    for hapl in haplotuples:
-                        if hapl[0] != parent_haplotype:
-                            node_name = f'{hapl[0]}_{direction}'
-                            self.graph.add_node(node_name)
-                            self.graph.add_edge(parent_node, node_name, weight=hapl[1])
-                level_nodes = self.update_level_nodes(level_nodes)
-
-    def get_child_haplotype_tuples(self, aln_arr, parent_haplotype, x0, direction='right'):
-        parent_aln = self.filter_alignment_haplotype(aln_arr, parent_haplotype, x0, direction=direction)
-        if direction == 'right':
-            if x0 + len(parent_haplotype) + 1 <= aln_arr.shape[1]:
-                haplotuples = make_haplotype_tuples(parent_aln[:, x0:x0 + len(parent_haplotype) + 1])
-            else:
-                haplotuples = []
-        else:
-            if x0 - len(parent_haplotype) >= 0:
-                haplotuples = make_haplotype_tuples(parent_aln[:, x0 - len(parent_haplotype):x0 + 1])
-            else:
-                haplotuples = []
-        return haplotuples
-
-    def filter_alignment_haplotype(self, aln_arr, haplotype, x0, direction='right'):
-        if direction == 'right':
-            x = x0 + len(haplotype)
-            initial_haplotypes = np.array([''.join(seq) for seq in aln_arr[:, x0:x]])
-        else:
-            x = x0 - len(haplotype) + 1
-            initial_haplotypes = np.array([''.join(seq) for seq in aln_arr[:, x:x0 + 1]])
-        return aln_arr[initial_haplotypes == haplotype, :]
-
-    def update_level_nodes(self, level_nodes):
-        new_nodes = []
-        for node in level_nodes:
-            new_nodes += self.graph.successors(node)
-        return new_nodes
-
-    def export_graphs(self, output_file=None, output_name_stem=None, left_right_fnames=None, format='adjlist'):
-        if output_file:
-            if format == 'adjlist':
-                nx.write_adjlist(self.graph, output_file)
-            elif format == 'dat':
-                pickle.dump(self.graph, open(output_file, 'wb'))
-        else:
-            if left_right_fnames is None:
-                # Make separate files for left and right bifurcation graphs
-                f_left_tree = re.sub(f'.{format}$', '', output_name_stem) + f'_left.{format}'
-                f_right_tree = re.sub(f'.{format}$', '', output_name_stem) + f'_right.{format}'
-            else:
-                f_left_tree, f_right_tree = left_right_fnames
-
-            if format == 'adjlist':
-                nx.write_adjlist(self.graph, f_right_tree)
-            elif format == 'dat':
-                pickle.dump(self.graph, open(f_right_tree, 'wb'))
 
 def make_haplotype_tuples(aln_arr):
     haplotypes = [''.join(seq) for seq in aln_arr]
