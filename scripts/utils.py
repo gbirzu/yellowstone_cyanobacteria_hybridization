@@ -3,7 +3,6 @@ import pandas as pd
 import string
 import time
 import re
-import skbio
 import scipy.cluster.hierarchy as hclust
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
@@ -159,12 +158,6 @@ def read_text_file(f_in):
         for line in in_handle.readlines():
             f_content.append(line.strip())
     return f_content
-
-def write_linkage_to_newick(linkage_matrix, id_list, output_file):
-    #tree = sktree.TreeNode.from_linkage_matrix(linkage_matrix, id_list)
-    tree = skbio.tree.TreeNode.from_linkage_matrix(linkage_matrix, id_list)
-    skbio.io.write(tree, 'newick', output_file)
-
 
 def read_hybridization_table(f_table, length_cutoff=0):
     hybridization_table = pd.read_csv(f_table, sep='\t', index_col=0)
