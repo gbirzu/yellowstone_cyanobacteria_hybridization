@@ -789,7 +789,7 @@ def read_gene_ids(table_row, group_by_sag=False, drop_none=False):
 def make_og_table_row(subcluster_id, gene_ids, og_table):
     sag_grouped_gene_ids = group_og_table_genes(gene_ids, og_table)
     
-    row_df = pd.Series(index=og_table.columns)
+    row_df = pd.Series(index=og_table.columns, dtype=object)
     row_df['num_seqs'] = len(gene_ids)
     row_df['num_cells'] = len(sag_grouped_gene_ids)
     row_df['seqs_per_cell'] = len(gene_ids) / len(sag_grouped_gene_ids)
