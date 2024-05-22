@@ -970,7 +970,8 @@ def plot_heatmap(data, xlabel='', ylabel='', cmap='Blues', grid=True, cbar_label
     if grid == True:
         ax.grid(which='minor', color='w', linestyle='-', linewidth=0.1)
 
-    cax = plt.subplot(gspec[0, 1], aspect=w1)
+    #cax = plt.subplot(gspec[0, 1], aspect=w1)
+    cax = plt.subplot(gspec[0, 1])
     cb = plt.colorbar(im, cax=cax)
     cb.ax.set_ylabel(cbar_label, rotation=90, fontsize=12, labelpad=10)
     cb.ax.tick_params(labelsize=12)

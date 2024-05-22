@@ -84,7 +84,7 @@ def plot_og_rank_prevalence(og_table, args):
     plt.close()
 
 
-def analyze_trimming_results(og_table, args):
+def plot_trimming_results(og_table, args):
     r = 7
     l_min = 100
     f_trim = args.f_trim
@@ -144,63 +144,7 @@ def analyze_trimming_results(og_table, args):
     plt.close()
 
 
-    # Filter highly trimmed alignments
-    og_table['f_trimmed'] = np.abs(og_table['avg_length'] - og_table['trimmed_avg_length']) / og_table['avg_length']
-    highly_trimmed_ogs = og_table.index.values[(og_table['f_trimmed'] > 1 - f_trim) & (og_table['num_cells'] > 1)]
-    high_confidence_ogs = og_table.index.values[(og_table['f_trimmed'] < 1 - f_trim) & (og_table['num_cells'] > 1)]
-    singleton_ogs = og_table.index.values[og_table['num_cells'] <= 1]
-
-    cols = og_table.columns.values[:-1] # remove 'f_trimmed'
-    filtered_og_table = og_table.loc[high_confidence_ogs, cols]
-    filtered_og_table.to_csv(f'{args.output_dir}filtered_orthogroup_table.tsv', sep='\t')
-
-    trimmed_og_table = og_table.loc[highly_trimmed_ogs, cols]
-    trimmed_og_table.to_csv(f'{args.output_dir}high_trim_orthogroup_table.tsv', sep='\t')
-
-    singleton_og_table = og_table.loc[singleton_ogs, cols]
-    singleton_og_table.to_csv(f'{args.output_dir}singleton_orthogroup_table.tsv', sep='\t')
-
-    if args.verbose:
-        print(len(highly_trimmed_ogs))
-        print(len(high_confidence_ogs))
-        print(len(singleton_ogs))
-        print(og_table)
-        print(og_table.loc[(og_table['f_trimmed'] > 1 - f_trim) & (og_table['num_cells'] > 1), :])
-        print(og_table.loc[(og_table['f_trimmed'] < 1 - f_trim) & (og_table['num_cells'] > 1), :].sort_values('f_trimmed', ascending=False).iloc[:50, :6])
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-F', '--figures_dir', default='../figures/analysis/', help='Directory metagenome recruitment files.')
-    parser.add_argument('-O', '--output_dir', default='../results/tests/', help='Directory in which results are saved.')
-    parser.add_argument('-g', '--orthogroup_table', required=True, help='File with orthogroup table.')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Run in verbose mode.')
-    parser.add_argument('--f_trim', default=0.85, help='Fraction alignment trimmed cutoff.')
-    args = parser.parse_args()
-
-    pangenome_map = PangenomeMap(f_orthogroup_table=args.orthogroup_table)
-    og_table = pangenome_map.og_table
-    metadata = MetadataMap()
-
-    # Process OG table
-    meta_cols = ['seq_cluster'] + list(og_table.columns.values[:4])
-    sag_cols = list(og_table.columns.values[4:])
-    og_table['seq_cluster'] = [re.sub(r'[a-z]*', '', s) for s in og_table.index.values]
-    og_table = og_table[meta_cols + sag_cols]
-
-    plot_seq_cluster_orthogroups(og_table, args)
-    plot_seqs_per_cell(og_table, args)
-
-    analyze_trimming_results(og_table, args)
-
-    # Read filtered OG table
-    og_table = pd.read_csv(f'{args.output_dir}filtered_orthogroup_table.tsv', sep='\t', index_col=0)
-    f_cn = 1.1
-    single_copy_og_table = og_table.loc[og_table['seqs_per_cell'] == 1, :]
-    single_copy_og_table.to_csv(f'{args.output_dir}filtered_single_copy_orthogroup_table.tsv', sep='\t')
-    low_copy_og_table = og_table.loc[og_table['seqs_per_cell'] < f_cn, :]
-    low_copy_og_table.to_csv(f'{args.output_dir}filtered_low_copy_orthogroup_table.tsv', sep='\t')
-
+def plot_copy_number_distributions(og_table, args, f_cn=1.1):
     fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
     ax = fig.add_subplot(111)
     ax.set_xlabel(f'mean seqs per cell', fontsize=14)
@@ -225,9 +169,31 @@ if __name__ == '__main__':
     plt.close()
 
 
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-F', '--figures_dir', default='../figures/analysis/', help='Directory metagenome recruitment files.')
+    parser.add_argument('-O', '--output_dir', default='../results/tests/', help='Directory in which results are saved.')
+    parser.add_argument('-g', '--orthogroup_table', required=True, help='File with orthogroup table.')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Run in verbose mode.')
+    parser.add_argument('--f_trim', default=0.85, help='Fraction alignment trimmed cutoff.')
+    args = parser.parse_args()
 
+    pangenome_map = PangenomeMap(f_orthogroup_table=args.orthogroup_table)
+    og_table = pangenome_map.og_table
+    metadata = MetadataMap()
 
+    # Process OG table
+    meta_cols = ['seq_cluster'] + list(og_table.columns.values[:4])
+    sag_cols = list(og_table.columns.values[4:])
+    og_table['seq_cluster'] = [re.sub(r'[a-z]*', '', s) for s in og_table.index.values]
+    og_table = og_table[meta_cols + sag_cols]
 
+    plot_seq_cluster_orthogroups(og_table, args)
+    plot_seqs_per_cell(og_table, args)
 
+    plot_trimming_results(og_table, args)
 
-    
+    # Read filtered OG table
+    og_table = pd.read_csv(f'{args.output_dir}filtered_orthogroup_table.tsv', sep='\t', index_col=0)
+    plot_copy_number_distributions(og_table, args)
+
