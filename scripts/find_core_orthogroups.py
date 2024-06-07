@@ -47,7 +47,6 @@ def plot_species_og_abundances(og_prevalence, args):
     ax.set_xlabel('orthogroup abundance', fontsize=14)
     ax.set_ylabel('orthogroups', fontsize=14)
     ax.hist(og_abundance, bins=x_bins)
-    ax.legend(fontsize=12, frameon=False)
     plt.tight_layout()
     plt.savefig(f'{args.figures_dir}og_abundance_distribution.pdf')
     plt.close()
@@ -58,7 +57,6 @@ def plot_species_og_abundances(og_prevalence, args):
     ax.set_ylabel('orthogroups', fontsize=14)
     ax.set_yscale('log')
     ax.hist(og_abundance, bins=x_bins)
-    ax.legend(fontsize=12, frameon=False)
     plt.tight_layout()
     plt.savefig(f'{args.figures_dir}og_abundance_distribution_logy.pdf')
     plt.close()
@@ -130,7 +128,6 @@ if __name__ == '__main__':
         og_prevalence[c] = og_table[c].str.split(';').str.len()
     og_prevalence = og_prevalence.fillna(0)
     og_prevalence = og_prevalence.groupby(['parent_og_id']).sum()
-    print(og_prevalence)
 
     # Make plots
     plot_sag_coverage(og_prevalence, args)
@@ -143,18 +140,23 @@ if __name__ == '__main__':
     og_table.insert(3, 'core_Bp', '')
     Bp_core_idx = og_table.loc[og_table['parent_og_id'].isin(species_core_ogs['Bp']), :].index.values
     og_table.loc[Bp_core_idx, 'core_Bp'] = 'Yes'
-    og_table.to_csv(args.output_file, sep='\t')
 
+    # Save results
+    og_table.to_csv(args.output_file, sep='\t')
     core_og_table = og_table.loc[(og_table['core_A'] == 'Yes') & (og_table['core_Bp'] == 'Yes'), :]
-    core_parent_ids, core_parent_counts = utils.sorted_unique(core_og_table['parent_og_id'])
-    print(core_parent_ids, len(core_parent_ids))
-    print(core_parent_counts)
-    print(len(og_table['parent_og_id'].unique()))
-    print(f'Single cluster core OGs: {np.sum(core_parent_counts == 1)}')
-    print(f'Multi-cluster core OGs: {np.sum(core_parent_counts > 1)}')
+    f_core_only = args.output_file.replace('core', 'core-only')
+    core_og_table.to_csv(f_core_only, sep='\t')
 
 
     if args.verbose:
+        core_parent_ids, core_parent_counts = utils.sorted_unique(core_og_table['parent_og_id'])
+        print(core_parent_ids, len(core_parent_ids))
+        print(core_parent_counts)
+        print(len(og_table['parent_og_id'].unique()))
+        print(f'Single cluster core OGs: {np.sum(core_parent_counts == 1)}')
+        print(f'Multi-cluster core OGs: {np.sum(core_parent_counts > 1)}')
+        print('\n\n')
+
         print(og_table, len(og_table.loc[og_table['core_A'] == 'Yes', :]), len(og_table.loc[og_table['core_Bp'] == 'Yes', :]))
         print(og_table.loc[og_table['core_A'] == 'Yes', :])
         print(og_table.loc[og_table['core_Bp'] == 'Yes', :])
