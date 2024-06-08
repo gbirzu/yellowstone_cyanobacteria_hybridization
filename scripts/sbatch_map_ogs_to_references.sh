@@ -13,8 +13,9 @@ ml ncbi-blast+
 
 #data_dir='../results/single-cell/sscs_pangenome/'
 data_dir='../results/single-cell/sscs_pangenome_v2/'
-blast_dir="../results/tests/pangenome_construction/v2/_blastn_results/"
-f_updated_og_table='../results/tests/pangenome_construction/v2/test_mapped_orthogroup_table.tsv'
+f_og_table="${data_dir}filtered_low_copy_clustered_core_orthogroup_table.tsv"
+f_updated_og_table="${data_dir}filtered_low_copy_clustered_core_mapped_orthogroup_table.tsv"
+blast_dir="${data_dir}_blastn_results/"
 mkdir -p ${blast_dir}
 num_threads=4
 
@@ -33,8 +34,6 @@ done
 
 # Export seqs
 python3 pg_map_to_reference.py -O ${blast_dir} -r ${f_ref_files} --export_ref_seqs
-#f_og_table="${data_dir}filtered_orthogroups/sscs_filtered_orthogroup_presence.tsv"
-f_og_table="../results/tests/pangenome_construction/v2/test_orthogroup_table.tsv"
 python3 pg_map_to_reference.py -D ${data_dir} -g ${f_og_table} -o "${blast_dir}sscs_single_copy_consensus_seqs.fna" --export_og_consensus_seqs
 
 # Find BLAST RBH against references
@@ -86,8 +85,6 @@ python3 pg_map_to_reference.py -b ${f_rbh} -g ${f_og_table} -r ${f_ref_files} -o
 
 
 # Clean up
-#cp ${data_dir}fine_scale_og_clusters/*.fna ${data_dir}filtered_orthogroups/
-#cp ${f_og_table} ${data_dir}filtered_orthogroups/ 
 rm -f ${f_ref_files}
 rm -f ${f_rbh}
 
