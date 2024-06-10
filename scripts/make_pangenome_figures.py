@@ -15,8 +15,95 @@ color_dict = {'A':'tab:orange', 'Bp':'tab:blue', 'C':'tab:green'}
 label_dict = {'A':r'$\alpha$', 'Bp':r'$\beta$', 'C':r'$\gamma$'}
 
 
+def plot_trimming_results(og_table, args, f_trim=0.85):
+    r = 7
+    l_min = 100
 
-def read_og_tables():
+    x, y = og_table.loc[og_table['num_cells'] > 1, ['avg_length', 'trimmed_avg_length']].fillna(0).values.T
+    f_trimmed = np.abs(x - y) / x
+
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel(f'fraction alignment trimmed', fontsize=14)
+    ax.set_ylabel(f'density', fontsize=14)
+    ax.set_yscale('log')
+    ax.set_ylim(1E-2, 3E1)
+    ax.hist(f_trimmed, bins=100, label='$L > 100$', density=True)
+
+    # Plot exponential fit
+    hist, _ = np.histogram(f_trimmed, bins=100, density=True)
+    mu = hist[0]
+    f_arr = np.linspace(0, 1, 100)
+    ax.plot(f_arr, mu * np.exp(-mu * f_arr) / (1 - np.exp(-mu)), '-k', lw=1)
+
+    ax.axvline(1 - f_trim, ls='--', lw=2.0, c='tab:red')
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}f_trimmed_distribution.pdf')
+    plt.close()
+
+
+def plot_copy_number_distributions(og_table, args, f_cn=1.1):
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel(f'mean seqs per cell', fontsize=14)
+    ax.set_ylabel(f'CCDF', fontsize=14)
+    ax.set_yscale('log')
+    ax.hist(og_table['seqs_per_cell'], bins=500, density=True, histtype='step', cumulative=-1)
+    ax.axvline(f_cn, ls='--', lw=1, c='tab:red')
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}filtered_og_mean_seqs_per_cell_ccdf.pdf')
+    plt.close()
+
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel(f'excess copies per cell', fontsize=14)
+    ax.set_xscale('log')
+    ax.set_ylabel(f'CCDF', fontsize=14)
+    ax.set_yscale('log')
+    ax.hist(og_table['seqs_per_cell'] - 1, bins=500, density=True, histtype='step', cumulative=-1)
+    ax.axvline(f_cn - 1, ls='--', lw=1, c='tab:red')
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}filtered_og_mean_seqs_per_cell_ccdf_loglog.pdf')
+    plt.close()
+
+
+def plot_pdist_distributions(og_table, args):
+    pdist_values = []
+    for o in og_table.index:
+        pdist_df = pickle.load(open(f'{args.pangenome_dir}pdist/{o}_trimmed_pdist.dat', 'rb'))
+        pdist_values.append(utils.get_matrix_triangle_values(pdist_df.values, k=1))
+
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel('pairwise distance, $\pi_{ij}$', fontsize=14)
+    ax.set_ylabel('density', fontsize=14)
+    ax.hist(np.concatenate(pdist_values), bins=100, density=True)
+    ax.axvline(0.075, lw=2, ls='--', c='tab:red')
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}{args.fhead}orthogroup_pdist_distribution.pdf')
+    plt.close()
+
+    return pdist_values
+
+
+def plot_species_clusters_distribution(clustered_og_table, args):
+    parent_ids, parent_counts = utils.sorted_unique(clustered_og_table['parent_og_id'].values)
+
+    # Plot OG species clusters
+    x, y = utils.sorted_unique(parent_counts, sort='ascending')
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel('species clusters', fontsize=14)
+    ax.set_ylabel('number of orthogroups', fontsize=14)
+    ax.set_yscale('log')
+    ax.set_ylim(8E-1, 1.5 * np.max(y))
+    ax.plot(x, y, '-o', lw=2, ms=6, mfc='none', mec='tab:blue')
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}{args.fhead}species_clusters_distribution.pdf')
+    plt.close()
+
+
+def read_processed_og_tables():
     f_core_labeled = '../results/single-cell/sscs_pangenome_v2/filtered_low_copy_clustered_core_mapped_orthogroup_table.tsv'
     og_table = pd.read_csv(f_core_labeled, sep='\t', index_col=0)
     core_og_table = og_table.loc[(og_table['core_A'] == 'Yes') & (og_table['core_Bp'] == 'Yes'), :]
@@ -132,13 +219,26 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-F', '--figures_dir', default='../figures/analysis/', help='Directory metagenome recruitment files.')
     parser.add_argument('-P', '--pangenome_dir', default='../results/single-cell/sscs_pangenome_v2/', help='Directory with pangenome files.')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Run in verbose mode.')
+    parser.add_argument('-f', '--fhead', default='', help='File name head.')
     parser.add_argument('-r', '--random_seed', type=int, default=12397, help='RNG seed.')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Run in verbose mode.')
     args = parser.parse_args()
 
-    og_table, core_og_table = read_og_tables()
     rng = np.random.default_rng(args.random_seed)
 
+    og_table = pd.read_csv(f'{args.pangenome_dir}trimmed_orthogroup_table.tsv', sep='\t', index_col=0)
+    plot_trimming_results(og_table, args)
+    
+    og_table = pd.read_csv(f'{args.pangenome_dir}filtered_orthogroup_table.tsv', sep='\t', index_col=0)
+    plot_copy_number_distributions(og_table, args)
+
+    og_table = pd.read_csv(f'{args.pangenome_dir}filtered_low_copy_orthogroup_table.tsv', sep='\t', index_col=0)
+    plot_pdist_distributions(og_table, args)
+
+    clustered_og_table = pd.read_csv(f'{args.pangenome_dir}filtered_low_copy_clustered_orthogroup_table.tsv', sep='\t', index_col=0)
+    plot_species_clusters_distribution(clustered_og_table, args)
+
+    processed_og_table, core_og_table = read_processed_og_tables()
     metadata_map = mm.MetadataMap()
     sag_ids = np.array([c for c in og_table.columns if 'Uncmic' in c])
     species_sorted_sags = metadata_map.sort_sags(sag_ids, by='species')
@@ -156,9 +256,7 @@ if __name__ == '__main__':
         print('\n\n')
 
     plot_species_fraction_distributions(core_og_table, args)
-
     plot_mixed_species_frequency_distribution(core_og_table, args, rng)
-
     plot_beta_distribution(core_og_table, args, rng)
 
 
