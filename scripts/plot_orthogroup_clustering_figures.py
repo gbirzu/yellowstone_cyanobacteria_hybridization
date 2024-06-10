@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('-F', '--figures_dir', default='../figures/analysis/', help='Directory metagenome recruitment files.')
     parser.add_argument('-P', '--pangenome_dir', default='../results/single-cell/sscs_pangenome_v2/', help='Directory with pangenome files.')
     parser.add_argument('-f', '--fhead', default='', help='File name head.')
-    parser.add_argument('-g', '--orthogroup_table', required=True, help='File with orthogroup table.')
+    parser.add_argument('-g', '--orthogroup_table', default='../results/single-cell/sscs_pangenome_v2/filtered_low_copy_orthogroup_table.tsv', help='File with orthogroup table.')
     parser.add_argument('-s', '--random_seed', default=713, type=int, help='RNG seed.')
     parser.add_argument('-v', '--verbose', action='store_true', help='Run in verbose mode.')
     args = parser.parse_args()
@@ -57,11 +57,9 @@ if __name__ == '__main__':
     # Plot pdist matrices
     rng = np.random.default_rng(args.random_seed)
     og_id = rng.choice(og_table.index.values)
-    print(og_id)
     pdist_df = pickle.load(open(f'{args.pangenome_dir}pdist/{og_id}_trimmed_pdist.dat', 'rb'))
     plot_heatmap(pdist_df, cbar_label='pairwise distance', cmap='inferno', savefig=f'{args.figures_dir}{og_id}_pdist_matrix.pdf')
     plot_pdist_clustermap(pdist_df, cbar_label='pairwise distance', cmap='inferno', savefig=f'{args.figures_dir}{og_id}_pdist_clustermap.pdf')
-    print(pdist_df)
 
     # Get clustering statistics
     f_clustered_table = args.orthogroup_table.replace('orthogroup_table.tsv', 'clustered_orthogroup_table.tsv')
@@ -70,16 +68,9 @@ if __name__ == '__main__':
     unclustered_idx = np.array([i for i in clustered_og_table.index if '-' not in i])
     clustered_idx = np.array([i for i in clustered_og_table.index if '-' in i])
     parent_ids, parent_counts = utils.sorted_unique(clustered_og_table['parent_og_id'].values)
-    #clustered_parent_ids, clustered_parent_counts = utils.sorted_unique(clustered_og_table.loc[clustered_idx, 'parent_og_id'].values)
     clustered_parent_ids = parent_ids[parent_counts > 1]
     clustered_parent_counts = parent_counts[parent_counts > 1]
     num_multicluster_ogs = np.sum(clustered_parent_counts > 3)
-    print(og_table)
-    print(clustered_og_table)
-    print(len(unclustered_idx), len(clustered_idx))
-    print(clustered_parent_ids[:num_multicluster_ogs])
-    print(clustered_parent_counts[:num_multicluster_ogs])
-    print(len(clustered_parent_ids), num_multicluster_ogs)
 
     # Plot OG species clusters
     x, y = utils.sorted_unique(parent_counts, sort='ascending')
@@ -95,9 +86,19 @@ if __name__ == '__main__':
     plt.close()
 
 
+
     multi_cluster_parent_ids = clustered_parent_ids[clustered_parent_counts > 3]
     clustered_og_table.loc[clustered_og_table['parent_og_id'].isin(multi_cluster_parent_ids), :].to_csv(f'../results/tests/pangenome_construction/{args.fhead}multi_cluster_og_table.tsv', sep='\t')
 
-
+    if args.verbose:
+        print(og_id)
+        print(pdist_df)
+        print('\n\n')
+        print('OG table:\n', og_table, '\n')
+        print('Clustered OG table:\n', clustered_og_table, '\n')
+        print('Single-cluster species OGs: ', len(unclustered_idx), '\nMulti-cluster species OGs: ', len(clustered_idx), '\n\n')
+        print(clustered_parent_ids[:num_multicluster_ogs])
+        print(clustered_parent_counts[:num_multicluster_ogs])
+        print(len(clustered_parent_ids), num_multicluster_ogs)
 
 

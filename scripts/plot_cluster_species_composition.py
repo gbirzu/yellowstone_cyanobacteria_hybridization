@@ -26,7 +26,6 @@ if __name__ == '__main__':
     parser.add_argument('-F', '--figures_dir', default='../figures/analysis/', help='Directory metagenome recruitment files.')
     parser.add_argument('-P', '--pangenome_dir', default='../results/single-cell/sscs_pangenome_v2/', help='Directory with pangenome files.')
     parser.add_argument('-g', '--orthogroup_table', required=True, help='File with orthogroup table.')
-    parser.add_argument('-o', '--output_file', required=True, help='File with output orthogroup table.')
     parser.add_argument('-v', '--verbose', action='store_true', help='Run in verbose mode.')
     parser.add_argument('-r', '--random_seed', type=int, default=12397, help='RNG seed.')
     args = parser.parse_args()
@@ -43,6 +42,7 @@ if __name__ == '__main__':
         core_og_table.insert(7, f'{s}_sag_abundance', n_series)
 
 
+    print(og_table.iloc[:, :10])
     core_og_table = sort_species_clusters(core_og_table)
 
     print(core_og_table.iloc[:, :10])
@@ -54,8 +54,8 @@ if __name__ == '__main__':
 
     fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
     ax = fig.add_subplot(111)
-    ax.set_xlabel('cell fraction', fontsize=14)
-    ax.set_ylabel('orthogroups', fontsize=14)
+    ax.set_xlabel('species cell fraction', fontsize=14)
+    ax.set_ylabel('orthogroup clusters', fontsize=14)
     ax.set_yscale('log')
     x_bins = np.linspace(0, 1, 101)
     for s in label_dict:
@@ -110,5 +110,32 @@ if __name__ == '__main__':
     ax.legend(fontsize=10, frameon=False)
     plt.tight_layout()
     plt.savefig(f'{args.figures_dir}orthogroup_cluster_frequency_distribution.pdf')
+    plt.close()
+
+
+    f_beta_avg = core_og_table['Bp_sag_abundance'].sum() / np.sum(core_og_table[['A_sag_abundance', 'Bp_sag_abundance', 'C_sag_abundance']].values)
+    parent_ids, parent_counts = utils.sorted_unique(core_og_table['parent_og_id'].values)
+    single_cluster_idx = core_og_table.index.values[core_og_table['parent_og_id'].isin(parent_ids[parent_counts == 1])]
+    f_beta = core_og_table.loc[single_cluster_idx, 'Bp_sag_abundance'] / core_og_table.loc[single_cluster_idx, ['A_sag_abundance', 'Bp_sag_abundance', 'C_sag_abundance']].sum(axis=1)
+
+    n_beta_null = rng.binomial(core_og_table.loc[single_cluster_idx, 'num_cells'], f_beta_avg)
+    f_beta_null = n_beta_null / core_og_table.loc[single_cluster_idx, 'num_cells']
+
+    print(f_beta, f_beta_avg)
+    print(np.sum(parent_counts == 1), np.sum(parent_counts > 1))
+    print(core_og_table.loc[single_cluster_idx, :])
+
+
+    x_bins = np.linspace(0.5, 1, 30)
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel(r'fraction $\beta$ sequences', fontsize=14)
+    ax.set_ylabel('orthogroups', fontsize=14)
+    ax.hist(f_beta, bins=x_bins, color='tab:blue', label='data')
+    ax.hist(f_beta_null, bins=x_bins, color='k', histtype='step', lw=2, label='null model')
+    ax.axvline(f_beta_avg, ls='--', color='k', lw=2, label='mean $\\beta$\nfraction')
+    ax.legend(fontsize=10, frameon=False)
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}single_cluster_orthogroup_beta_distribution.pdf')
     plt.close()
 
