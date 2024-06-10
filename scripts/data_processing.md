@@ -10,3 +10,18 @@ The variables for the most recent analysis were the following:
 - `FILTERED_ORTHOGROUP_TABLE_PATH` = ../results/single-cell/sscs\_pangenome\_v2/filtered\_low\_copy\_orthogroup\_table.tsv
 
 For submitting to a computing cluster `bash` can be replaced with `sbatch` (or any other submission command) in step 2.
+
+### Orthogroup tables guide
+
+- orthogroup\_table.tsv : Table generated from MCL clustering, after filtering orthogroups with unusual alignment length distributions
+- filtered\_orthogroup\_table.tsv : Obtained from orthogroup\_table.tsv by removing alignments with high alignment trimming fraction
+- filtered\_low\_copy\_orthogroup\_table.tsv : Obtained from filtered\_orthogroup\_table.tsv by removing orthogroups with high copy numbers per cell
+- filtered\_low\_copy\_clustered\_orthogroup\_table.tsv : Obtained from filtered\_low\_copy\_orthogroup\_table.tsv by clustering orthogroups at species level
+- filtered\_low\_copy\_clustered\_core\_orthogroup\_table.tsv : Obtained from filtered\_low\_copy\_clustered\_orthogroup\_table.tsv by labeling core A and Bp orthogroup clusters based on the species composition
+- filtered\_low\_copy\_clustered\_core\_mapped\_orthogroup\_table.tsv : Obtained from filtered\_low\_copy\_clustered\_core\_orthogroup\_table.tsv by mapping consensus sequences from clusters to reference genomes
+- filtered\_low\_copy\_clustered\_core\_mapped\_labeled\_orthogroup\_table.tsv 
+- filtered\_low\_copy\_clustered\_core-only\_mapped\_labeled\_orthogroup\_table.tsv
+
+
+
+

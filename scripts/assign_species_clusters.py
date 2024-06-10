@@ -104,20 +104,11 @@ if __name__ == '__main__':
     og_table = pd.read_csv(args.orthogroup_table, sep='\t', index_col=0)
     sag_ids = np.array([c for c in og_table.columns if 'Uncmic' in c])
     species_sorted_sags = metadata_map.sort_sags(sag_ids, by='species')
+    core_og_table = og_table.loc[(og_table['core_A'] == 'Yes') & (og_table['core_Bp'] == 'Yes'), :]
 
-    '''
-    # Old method
-    pangenome_map = pg_utils.PangenomeMap(f_orthogroup_table=args.orthogroup_table)
-    labeled_og_table = pangenome_map.bin_ogs_by_species_composition(metadata_map)
-    cluster_labels, label_counts = utils.sorted_unique(labeled_og_table['sequence_cluster'])
-    print(labeled_og_table.iloc[:, :10])
-    print(cluster_labels)
-    print(label_counts)
-    print('\n\n')
-    '''
 
     # New method
-    labeled_og_table = bin_ogs_by_species_composition(og_table, metadata_map)
+    labeled_og_table = bin_ogs_by_species_composition(core_og_table, metadata_map)
     labeled_og_table = labeled_og_table.drop(columns=['trimmed_avg_length'])
     labeled_og_table.to_csv(args.output_file, sep='\t')
 
