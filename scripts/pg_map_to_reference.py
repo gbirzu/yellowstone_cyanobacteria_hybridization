@@ -56,22 +56,23 @@ def make_rbh_dict(ref_rbh_files):
 
 
 def update_og_table(og_table, rbh_dict, ref_annotations):
-    old_columns = list(og_table.columns)
-    columns = ['gene', 'CYA_tag', 'CYB_tag'] + list(og_table.columns)
+    # Get sorted columns
+    columns = ['locus_tag', 'gene', 'CYA_tag', 'CYB_tag'] + list(og_table.columns)
+    col_name_dict = {'CP000239':'CYA_tag', 'CP000240':'CYB_tag'}
 
     for og_id in og_table.index:
-        ref_locus_tag, ref_id = get_ref_locus_tag(og_id, rbh_dict, 'CP000239') 
-        if ref_locus_tag is not None:
-            og_table.loc[og_id, 'CYA_tag'] = ref_locus_tag
-            gene = get_locus_tag_gene(ref_locus_tag, ref_annotations[ref_id])
-            og_table.loc[og_id, 'gene'] = gene
+        for ref in ['CP000239', 'CP000240']:
+            ref_locus_tag, ref_id = get_ref_locus_tag(og_id, rbh_dict, ref) 
+            if ref_locus_tag is not None:
+                og_table.loc[og_id, col_name_dict[ref]] = ref_locus_tag
+                gene = get_locus_tag_gene(ref_locus_tag, ref_annotations[ref_id])
+                if gene is not None:
+                    og_table.loc[og_id, 'gene'] = gene
 
-        ref_locus_tag, ref_id = get_ref_locus_tag(og_id, rbh_dict, 'CP000240') 
-        if ref_locus_tag is not None:
-            og_table.loc[og_id, 'CYB_tag'] = ref_locus_tag
-            gene = get_locus_tag_gene(ref_locus_tag, ref_annotations[ref_id])
-            if gene is not None:
-                og_table.loc[og_id, 'gene'] = gene # Prefer OS-B' gene name
+    # Add locus_tag : in order of preference gene ID, CYB ID, CYA ID
+    og_table.insert(0, 'locus_tag', og_table['gene'].values)
+    og_table.loc[(og_table['locus_tag'].isnull() & og_table['CYB_tag'].notna()), 'locus_tag'] = og_table.loc[(og_table['locus_tag'].isnull() & og_table['CYB_tag'].notna()), 'CYB_tag']
+    og_table.loc[og_table['locus_tag'].isnull(), 'locus_tag'] = og_table.loc[og_table['locus_tag'].isnull(), 'CYA_tag']
 
     return og_table.reindex(columns=columns)
 
@@ -82,12 +83,6 @@ def get_ref_locus_tag(og_id, rbh_dict, default_ref):
     else:
         locus_tag = None
         ref_id = None
-        '''
-        for ref_id in rbh_dict:
-            if og_id in rbh_dict[ref_id]:
-                locus_tag = rbh_dict[ref_id][og_id]
-                break
-        '''
     return locus_tag, ref_id
 
 def get_locus_tag_gene(locus_tag, ref_annotation):

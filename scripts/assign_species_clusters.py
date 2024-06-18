@@ -8,19 +8,21 @@ import alignment_tools as align_utils
 import pangenome_utils as pg_utils
 import metadata_map as mm
 
-def bin_ogs_by_species_composition(og_table, metadata, label_dict={'A':'A', 'Bp':'Bp', 'C':'C', 'O':'X', 'M':'M'}, reorder_columns=True):
+def bin_ogs_by_species_composition(og_table, metadata, label_dict={'A':'A', 'Bp':'Bp', 'C':'C', 'O':'O', 'M':'M'}, reorder_columns=True):
     # Double sort table: alphabetically by parent OG ID and in order of decreasing abundance within each parent OG
     og_table = sort_species_clusters(og_table)
-    og_table.insert(3, 'sequence_cluster', None)
+    col_idx = int(np.arange(og_table.shape[1])[og_table.columns.values == 'CYB_tag'][0])
+    og_table.insert(col_idx + 1, 'sequence_cluster', None)
 
     # Calculate species abundances for each OG cluster
     sag_ids = [col for col in og_table if 'Uncmic' in col]
     species_sorted_sags = metadata_map.sort_sags(sag_ids, by='species')
     sag_species = ['A', 'Bp', 'C']
+    abund_idx = int(np.arange(og_table.shape[1])[og_table.columns.values == 'num_cells'][0])
     for s in sag_species[::-1]:
         s_ids = species_sorted_sags[s]
         n_series = og_table[s_ids].notna().sum(axis=1)
-        og_table.insert(7, f'{s}_sag_abundance', n_series)
+        og_table.insert(abund_idx, f'{s}_sag_abundance', n_series)
 
     parent_og_ids = np.unique(og_table['parent_og_id'].values)
     for pid in parent_og_ids:
@@ -37,7 +39,11 @@ def bin_ogs_by_species_composition(og_table, metadata, label_dict={'A':'A', 'Bp'
             if f_max > args.f_single_species:
                 # Assign largest cluster to M if fraction of sequences is too high to be explained by Bp cluster 
                 og_table.loc[og_abundance.index.values[0], 'sequence_cluster'] = label_dict['M']
-                og_table.loc[og_abundance.index.values[1:], 'sequence_cluster'] = label_dict['O']
+                for i, sid in enumerate(og_abundance.index[1:]):
+                    if og_abundance.loc[sid, 'C_sag_abundance'] > 0:
+                        og_table.loc[sid, 'sequence_cluster'] = label_dict['C']
+                    else:
+                        og_table.loc[sid, 'sequence_cluster'] = label_dict['O']
             else:
                 assigned_labels = []
                 for i, sid in enumerate(og_abundance.index):
@@ -57,15 +63,6 @@ def bin_ogs_by_species_composition(og_table, metadata, label_dict={'A':'A', 'Bp'
                             assigned_labels.append(label_dict[majority_label])
 
     # Reorder columns and return table
-    '''
-    data_columns = [col for col in og_table if 'Uncmic' not in col]
-    sag_columns = [col for col in og_table if 'Uncmic' in col]
-    if reorder_columns:
-        new_columns = data_columns[:2] + [data_columns[-1]] + data_columns[2:-1] + sag_columns
-    else:
-        new_columns = data_columns + sag_columns
-    return og_table.reindex(columns=new_columns).rename(columns={'seq_cluster':'protein_sequence_cluster'})
-    '''
     return og_table.rename(columns={'seq_cluster':'protein_sequence_cluster'})
 
 
@@ -109,11 +106,17 @@ if __name__ == '__main__':
     species_sorted_sags = metadata_map.sort_sags(sag_ids, by='species')
     core_og_table = og_table.loc[(og_table['core_A'] == 'Yes') & (og_table['core_Bp'] == 'Yes'), :]
 
-
     # New method
     labeled_og_table = bin_ogs_by_species_composition(core_og_table, metadata_map)
     labeled_og_table = labeled_og_table.drop(columns=['trimmed_avg_length'])
-    labeled_og_table.to_csv(args.output_file, sep='\t')
+
+    # Sort columns
+    sag_columns = []
+    for species in ['A', 'Bp', 'C']:
+        sag_columns += list(species_sorted_sags[species])
+    data_columns = [c for c in labeled_og_table.columns if 'Uncmic' not in c]
+    sorted_columns = data_columns + sag_columns
+    labeled_og_table.reindex(columns=sorted_columns).to_csv(args.output_file, sep='\t')
 
     if args.verbose:
         cluster_labels, label_counts = utils.sorted_unique(labeled_og_table['sequence_cluster'])

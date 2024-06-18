@@ -247,6 +247,7 @@ def make_hybridization_counts_table(hybridization_table, pangenome_map, syn_homo
                     else:
                         hybridization_counts_df.loc[og_id, 'CYA_tag'] = cya_tags[0]
 
+    print(hybridization_counts_df)
     hybridization_counts_df = sort_hybridization_events_by_type(hybridization_counts_df, pangenome_map, metadata)
 
     return hybridization_counts_df
@@ -274,6 +275,7 @@ def sort_hybridization_events_by_type(hybridization_counts_df, pangenome_map, me
             host_clusters = [metadata.get_sag_species(sag_id) for sag_id in mismatched_sag_ids]
             #print('Single cluster OG')
             for host_species in host_clusters:
+                print(og_id, host_species, donor_cluster)
                 transfer_type = f'{donor_cluster}->{host_species}'
                 hybridization_counts_df.loc[og_id, transfer_type] += 1
                 hybridization_counts_df.loc[og_id, 'total_transfers'] += 1
@@ -607,9 +609,6 @@ if __name__ == '__main__':
 
     pangenome_map = PangenomeMap(f_orthogroup_table=args.orthogroup_table)
     og_table = pangenome_map.og_table
-    print(og_table)
-    og_table['locus_tag'] = og_table['gene']
-    print(og_table)
     metadata = MetadataMap()
     syn_homolog_map = SynHomologMap(build_maps=True)
 
