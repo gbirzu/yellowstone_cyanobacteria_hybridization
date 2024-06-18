@@ -82,10 +82,12 @@ def get_ref_locus_tag(og_id, rbh_dict, default_ref):
     else:
         locus_tag = None
         ref_id = None
+        '''
         for ref_id in rbh_dict:
             if og_id in rbh_dict[ref_id]:
                 locus_tag = rbh_dict[ref_id][og_id]
                 break
+        '''
     return locus_tag, ref_id
 
 def get_locus_tag_gene(locus_tag, ref_annotation):

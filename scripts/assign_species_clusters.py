@@ -11,6 +11,7 @@ import metadata_map as mm
 def bin_ogs_by_species_composition(og_table, metadata, label_dict={'A':'A', 'Bp':'Bp', 'C':'C', 'O':'X', 'M':'M'}, reorder_columns=True):
     # Double sort table: alphabetically by parent OG ID and in order of decreasing abundance within each parent OG
     og_table = sort_species_clusters(og_table)
+    og_table.insert(3, 'sequence_cluster', None)
 
     # Calculate species abundances for each OG cluster
     sag_ids = [col for col in og_table if 'Uncmic' in col]
@@ -56,14 +57,16 @@ def bin_ogs_by_species_composition(og_table, metadata, label_dict={'A':'A', 'Bp'
                             assigned_labels.append(label_dict[majority_label])
 
     # Reorder columns and return table
+    '''
     data_columns = [col for col in og_table if 'Uncmic' not in col]
     sag_columns = [col for col in og_table if 'Uncmic' in col]
     if reorder_columns:
         new_columns = data_columns[:2] + [data_columns[-1]] + data_columns[2:-1] + sag_columns
     else:
         new_columns = data_columns + sag_columns
-
     return og_table.reindex(columns=new_columns).rename(columns={'seq_cluster':'protein_sequence_cluster'})
+    '''
+    return og_table.rename(columns={'seq_cluster':'protein_sequence_cluster'})
 
 
 def sort_species_clusters(og_table):
