@@ -188,70 +188,35 @@ def calculate_number_species_cells(species_sorted_sags):
     return num_species_cells
 
 
-def make_hybridization_counts_table(hybridization_table, pangenome_map, syn_homolog_map, metadata, min_og_frequency=0.2, og_type='parent_og_id'):
+def make_hybridization_counts_table(hybridization_table, pangenome_map, metadata, min_og_frequency=0.2, og_type='parent_og_id'):
     og_table = pangenome_map.og_table
     og_ids = np.sort(og_table['parent_og_id'].dropna().unique())
     hybridization_counts_df = pd.DataFrame(index=og_ids, columns=['CYA_tag', 'CYB_tag', 'core_A', 'core_Bp', 'Bp->A', 'C->A', 'O->A', 'A->Bp', 'C->Bp', 'O->Bp', 'total_transfers'])
 
-    # Add species core OGs
-    species_alias_dict = {'A':'A', 'Bp':'B'}
-    mixed_core_og_table = make_species_core_og_table(pangenome_map, 'M', min_core_presence=min_og_frequency)
-    for species in ['A', 'Bp']:
-        species_core_og_table = make_species_core_og_table(pangenome_map, species, min_core_presence=min_og_frequency)
-        species_og_ids = np.unique(np.concatenate([species_core_og_table['parent_og_id'].values, mixed_core_og_table['parent_og_id'].values]))
-        #hybridization_counts_df.loc[species_og_ids, f'core_{species_alias_dict[species]}'] = 'Yes'
-        hybridization_counts_df.loc[species_og_ids, f'core_{species}'] = 'Yes'
-    
-    print(mixed_core_og_table, len(mixed_core_og_table['parent_og_id'].unique()))
-    print(og_table.loc[og_table['parent_og_id'].isin(mixed_core_og_table['parent_og_id'].unique())])
+    # Add core OGs
+    hybridization_counts_df = add_core_og_labels(hybridization_counts_df, og_table)
 
     # Add locus tags
-    for og_id in hybridization_counts_df.index:
-        if og_type == 'og_id':
-            locus_tag = og_table.loc[og_id, 'locus_tag']
-            orthologous_tag = syn_homolog_map.get_ortholog(locus_tag)
-            if type(locus_tag) != str:
-                hybridization_counts_df.loc[og_id, 'num_hybrid_cells'] = 0
-                continue
-
-            if 'CYA' in locus_tag:
-                hybridization_counts_df.loc[og_id, 'CYA_tag'] = locus_tag
-                if 'CYB' in orthologous_tag:
-                    hybridization_counts_df.loc[og_id, 'CYB_tag'] = orthologous_tag
-            elif 'CYB' in locus_tag:
-                hybridization_counts_df.loc[og_id, 'CYB_tag'] = locus_tag
-                if 'CYA' in orthologous_tag:
-                    hybridization_counts_df.loc[og_id, 'CYA_tag'] = orthologous_tag
-
-        elif og_type == 'parent_og_id':
-            locus_tags = og_table.loc[og_table['parent_og_id'] == og_id, 'locus_tag'].dropna().values
-            if len(locus_tags) > 0:
-                cya_tags = np.unique([tag for tag in locus_tags if 'CYA' in tag])
-                cyb_tags = np.unique([tag for tag in locus_tags if 'CYB' in tag])
-
-                if len(cya_tags) > 0:
-                    hybridization_counts_df.loc[og_id, 'CYA_tag'] = cya_tags[0]
-                    if len(cyb_tags) == 0:
-                        orthologous_tag = syn_homolog_map.get_ortholog(cya_tags[0])
-                        if 'CYB' in orthologous_tag:
-                            hybridization_counts_df.loc[og_id, 'CYB_tag'] = orthologous_tag
-                    else:
-                        hybridization_counts_df.loc[og_id, 'CYB_tag'] = cyb_tags[0]
-
-                elif len(cyb_tags) > 0:
-                    hybridization_counts_df.loc[og_id, 'CYB_tag'] = cyb_tags[0]
-                    if len(cya_tags) == 0:
-                        orthologous_tag = syn_homolog_map.get_ortholog(cyb_tags[0])
-                        if 'CYA' in orthologous_tag:
-                            hybridization_counts_df.loc[og_id, 'CYA_tag'] = orthologous_tag
-                    else:
-                        hybridization_counts_df.loc[og_id, 'CYA_tag'] = cya_tags[0]
-
-    print(hybridization_counts_df)
+    hybridization_counts_df = add_locus_tags(hybridization_counts_df, og_table)
+    print(hybridization_table)
     hybridization_counts_df = sort_hybridization_events_by_type(hybridization_counts_df, pangenome_map, metadata)
 
     return hybridization_counts_df
 
+def add_core_og_labels(locus_table, og_table):
+    core_df = og_table[['parent_og_id', 'core_A', 'core_Bp']].replace('Yes', 1).groupby('parent_og_id').sum()
+    core_df.loc[core_df['core_A'] > 0, 'core_A'] = 'Yes'
+    core_df.loc[core_df['core_Bp'] > 0, 'core_Bp'] = 'Yes'
+    locus_table.loc[:, ['core_A', 'core_Bp']] = core_df.loc[locus_table.index.values, ['core_A', 'core_Bp']]
+    return locus_table
+
+def add_locus_tags(locus_table, og_table):
+    for og_id in locus_table.index:
+        for col in ['CYA_tag', 'CYB_tag']:
+            tags = og_table.loc[og_table['parent_og_id'] == og_id, col].dropna().values
+            if len(tags) > 0:
+                locus_table.loc[og_id, col] = tags[0]
+    return locus_table
 
 def sort_hybridization_events_by_type(hybridization_counts_df, pangenome_map, metadata):
     og_table = pangenome_map.og_table
@@ -267,15 +232,9 @@ def sort_hybridization_events_by_type(hybridization_counts_df, pangenome_map, me
             mismatches_subtable = gene_cluster_mismatches.loc[sog_ids[0], :].dropna()
             mismatched_sag_ids = mismatches_subtable.index[mismatches_subtable == True].values
             donor_cluster = og_table.loc[sog_ids[0], 'sequence_cluster']
-            if donor_cluster == 'a':
-                donor_cluster = 'A'
-            elif donor_cluster == 'b':
-                donor_cluster = 'Bp'
-
             host_clusters = [metadata.get_sag_species(sag_id) for sag_id in mismatched_sag_ids]
             #print('Single cluster OG')
             for host_species in host_clusters:
-                print(og_id, host_species, donor_cluster)
                 transfer_type = f'{donor_cluster}->{host_species}'
                 hybridization_counts_df.loc[og_id, transfer_type] += 1
                 hybridization_counts_df.loc[og_id, 'total_transfers'] += 1
@@ -286,11 +245,6 @@ def sort_hybridization_events_by_type(hybridization_counts_df, pangenome_map, me
             donor_cluster = og_table.loc[sog_ids, 'sequence_cluster']
             host_clusters = [[metadata.get_sag_species(sag_id) for sag_id in mismatched_sag_ids[mismatches_subtable.loc[sog_id, mismatched_sag_ids] == True]] for sog_id in sog_ids] 
             for j, donor in enumerate(donor_cluster):
-                if donor == 'a':
-                    donor = 'A'
-                elif donor == 'b':
-                    donor = 'Bp'
-
                 if len(host_clusters[j]) > 0:
                     for host_species in host_clusters[j]:
                         transfer_type = f'{donor}->{host_species}'
@@ -350,46 +304,15 @@ def initialize_sequence_cluster_haplotypes(pangenome_map, metadata, syn_homolog_
     sag_ids = pangenome_map.get_sag_ids()
     species_sorted_sags = metadata.sort_sags(sag_ids, by='species')
     synabp_sag_ids = np.concatenate((species_sorted_sags['A'], species_sorted_sags['Bp']))
-    #species_cluster_genomes = pd.DataFrame(index=og_ids, columns=np.concatenate((['CYA_tag', 'CYB_tag', 'core_A', 'core_Bp', 'osa_location', 'osbp_location'], synabp_sag_ids)) )
     species_cluster_genomes = pd.DataFrame(index=og_ids, columns=np.concatenate((['CYA_tag', 'CYB_tag', 'core_A', 'core_Bp', 'osa_location', 'osbp_location'], sag_ids)) )
 
     # Add species core OGs
-    species_alias_dict = {'A':'A', 'Bp':'B'}
-    mixed_core_og_table = make_species_core_og_table(pangenome_map, 'M', min_core_presence=min_og_frequency)
-    for species in ['A', 'Bp']:
-        species_core_og_table = make_species_core_og_table(pangenome_map, species, min_core_presence=min_og_frequency)
-        species_og_ids = np.unique(np.concatenate([species_core_og_table['parent_og_id'].values, mixed_core_og_table['parent_og_id'].values]))
-        #species_cluster_genomes.loc[species_og_ids, f'core_{species_alias_dict[species]}'] = 'Yes'
-        species_cluster_genomes.loc[species_og_ids, f'core_{species}'] = 'Yes'
-    
-    #print(mixed_core_og_table, len(mixed_core_og_table['parent_og_id'].unique()))
-    #print(og_table.loc[og_table['parent_og_id'].isin(mixed_core_og_table['parent_og_id'].unique())])
+    species_cluster_genomes = add_core_og_labels(species_cluster_genomes, og_table)
 
     # Add locus tags
-    for og_id in species_cluster_genomes.index:
-        locus_tags = og_table.loc[og_table['parent_og_id'] == og_id, 'locus_tag'].dropna().values
-        if len(locus_tags) > 0:
-            cya_tags = np.unique([tag for tag in locus_tags if 'CYA' in tag])
-            cyb_tags = np.unique([tag for tag in locus_tags if 'CYB' in tag])
+    species_cluster_genomes = add_locus_tags(species_cluster_genomes, og_table)
 
-            if len(cya_tags) > 0:
-                species_cluster_genomes.loc[og_id, 'CYA_tag'] = cya_tags[0]
-                if len(cyb_tags) == 0:
-                    orthologous_tag = syn_homolog_map.get_ortholog(cya_tags[0])
-                    if 'CYB' in orthologous_tag:
-                        species_cluster_genomes.loc[og_id, 'CYB_tag'] = orthologous_tag
-                else:
-                    species_cluster_genomes.loc[og_id, 'CYB_tag'] = cyb_tags[0]
-
-            elif len(cyb_tags) > 0:
-                species_cluster_genomes.loc[og_id, 'CYB_tag'] = cyb_tags[0]
-                if len(cya_tags) == 0:
-                    orthologous_tag = syn_homolog_map.get_ortholog(cyb_tags[0])
-                    if 'CYA' in orthologous_tag:
-                        species_cluster_genomes.loc[og_id, 'CYA_tag'] = orthologous_tag
-                else:
-                    species_cluster_genomes.loc[og_id, 'CYA_tag'] = cya_tags[0]
-
+    # Add genome positions
     osa_scale_factor = 1E-6 * 2932766 / 2905 # approximate gene position in Mb
     species_cluster_genomes['osa_location'] = species_cluster_genomes['CYA_tag'].str.split('_').str[-1].astype(float) * osa_scale_factor
     osbp_scale_factor = 1E-6 * 3046682 / 2942  # approximate gene position in Mb
@@ -457,11 +380,14 @@ def annotate_haplotype_gene_clusters(species_cluster_genomes, pangenome_map, met
     # Map species cluster labels
     og_table['sequence_cluster'] = og_table['sequence_cluster'].map({'A':'A', 'Bp':'Bp', 'M':'M', 'C':'C', 'O':'O', 'a':'A', 'b':'Bp'}, na_action='ignore')
     core_og_ids = np.array([o for o in species_cluster_genomes.index[(species_cluster_genomes[['core_A', 'core_Bp']] == 'Yes').any(axis=1)] if 'rRNA' not in o])
+
     num_multiple_alleles = 0
     num_filtered_multiple_alleles = 0
     for o in core_og_ids:
         og_idx = np.array(og_table.loc[og_table['parent_og_id'] == o, :].index)
         og_clusters = og_table.loc[og_idx, 'sequence_cluster'].copy()
+
+        # Assign unique ID for multiple alleles from same OG
         if len(og_clusters.unique()) < len(og_clusters):
             cluster_labels, label_count = utils.sorted_unique(og_clusters.values)
             for c in cluster_labels[label_count > 1]:
@@ -474,11 +400,13 @@ def annotate_haplotype_gene_clusters(species_cluster_genomes, pangenome_map, met
             # Get index for covered OGs on valid contigs
             sag_allele_contigs = og_table.loc[og_idx, s].dropna().str.split('_').str[:2].str.join('_')
             filtered_idx = sag_allele_contigs.index[~sag_allele_contigs.isin(excluded_contigs)]
-            #s_alleles = og_clusters.values[og_table.loc[og_idx, s].notna()]
+            print(sag_allele_contigs, filtered_idx)
 
             # Assign cluster label
             s_alleles = og_clusters[filtered_idx].values
             species_cluster_genomes.loc[o, s] = ','.join(np.sort(s_alleles))
+            print(o, s, s_alleles)
+            print('\n')
 
             num_multiple_alleles += 1
             if len(s_alleles) > 1:
@@ -496,91 +424,58 @@ def annotate_haplotype_gene_clusters(species_cluster_genomes, pangenome_map, met
             if len(filtered_contig_sag_ids) > 0:
                 species_cluster_genomes.loc[o, filtered_contig_sag_ids] = np.nan
 
-
     print(num_multiple_alleles, num_filtered_multiple_alleles)
 
     return species_cluster_genomes
 
+def count_gene_hybrids(species_cluster_genomes, species_sorted_sags, host_species=['A', 'Bp'], donor_species=['A', 'Bp', 'C', 'O']):
+    '''
+    Calculates distribution of hybridization events from species cluster labeled genomes.
+    '''
 
-def plot_genomic_trenches_panel(species_cluster_genomes, pangenome_map, metadata, args, dx=2, w=5):
-    core_og_ids = pangenome_map.get_core_og_ids(metadata, min_og_frequency=args.min_og_presence, og_type='parent_og_id')
-    syn_homolog_map = SynHomologMap(build_maps=True)
-    sorted_mapped_og_ids = np.array(species_cluster_genomes.loc[core_og_ids, :].sort_values('osbp_location').index)
+    # Initialize table
+    metadata_columns = ['CYA_tag', 'CYB_tag', 'core_A', 'core_Bp']
+    transfer_columns = []
+    for h in host_species:
+        for d in donor_species:
+            if h != d:
+                transfer_columns.append(f'{d}->{h}')
+    columns = metadata_columns + transfer_columns
+    hybridization_counts_df = pd.DataFrame(0, index=species_cluster_genomes.index.values, columns=columns)
+    hybridization_counts_df.loc[:, metadata_columns] = species_cluster_genomes.loc[:, metadata_columns]
 
-    # Filter short genes
-    og_table = pangenome_map.og_table
-    filtered_idx = []
-    for og_id in sorted_mapped_og_ids:
-        avg_length = og_table.loc[og_table['parent_og_id'] == og_id, 'avg_length'].mean()
-        if avg_length > args.min_length + 100:
-            filtered_idx.append(og_id)
+    # Count hybrids
+    species_cluster_genomes = species_cluster_genomes.fillna('')
+    for host in host_species:
+        host_sags = species_sorted_sags[host]
+        host_donors = [s for s in donor_species if s != host]
 
-    sag_ids = pangenome_map.get_sag_ids()
-    species_sorted_sag_ids = metadata.sort_sags(sag_ids, by='species')
+        for donor in host_donors:
+            col = f'{donor}->{host}'
+            for s in host_sags:
+                hybrids = species_cluster_genomes[s].str.contains(donor).astype(int)
+                hybridization_counts_df.loc[:, col] += hybrids
 
-    # Calculate divergence between species
-    species_divergence_table = pd.DataFrame(index=filtered_idx, columns=['genome_position', 'species_divergence'])
-    species_divergence_table['genome_position'] = species_cluster_genomes.loc[filtered_idx, 'osbp_location']
-    mean_divergence, og_ids = pangenome_map.calculate_mean_divergence_between_groups(filtered_idx, species_sorted_sag_ids['A'], species_sorted_sag_ids['Bp'])
-    species_divergence_table.loc[og_ids, 'species_divergence'] = mean_divergence
-    species_divergence_table = species_divergence_table.loc[species_divergence_table['species_divergence'].notnull(), :]
+    hybridization_counts_df['total_transfers'] = hybridization_counts_df[transfer_columns].sum(axis=1)
 
-    # Choose random high-coverage A and B' SAGs for individual pair comparisons
-    sample_size = 10
-    gene_presence_cutoff = 1000
-    high_coverage_syna_sag_ids = list(np.array(species_sorted_sag_ids['A'])[(og_table[species_sorted_sag_ids['A']].notna().sum(axis=0) > gene_presence_cutoff).values])
-    syna_sample_sag_ids = np.random.choice(high_coverage_syna_sag_ids, size=10)
-    high_coverage_synbp_sag_ids = list(np.array(species_sorted_sag_ids['Bp'])[(og_table[species_sorted_sag_ids['Bp']].notna().sum(axis=0) > gene_presence_cutoff).values])
-    synbp_sample_sag_ids = np.random.choice(high_coverage_synbp_sag_ids, size=10)
-    sampled_sag_ids = np.concatenate([syna_sample_sag_ids, synbp_sample_sag_ids])
+    return hybridization_counts_df
 
-    # Get divergences between A and B' pairs across sites
-    dijk_dict = pangenome_map.get_sags_pairwise_divergences(sampled_sag_ids, input_og_ids=filtered_idx)
-    pair_divergence_values = []
-    x_pair_divergences = []
-    for og_id in species_divergence_table.index:
-        if og_id in dijk_dict:
-            dij = dijk_dict[og_id]
-            pair_divergence_values.append(dij[:sample_size, sample_size:].flatten().astype(float))
-        else:
-            empty_array = np.empty(sample_size**2)
-            empty_array[:] = np.nan
-            pair_divergence_values.append(empty_array.astype(float))
-        x_pair_divergences.append(species_divergence_table.loc[og_id, 'genome_position'])
-    pair_divergence_values = np.array(pair_divergence_values)
-    x_pair_divergences = np.array(x_pair_divergences)
 
-    fig = plt.figure(figsize=(double_col_width, 0.5 * single_col_width))
-    ax = fig.add_subplot(111)
-    #ax.set_xlabel('relative genome position')
-    ax.set_xlabel("OS-B' genome position (Mb)")
-    #ax.set_ylabel(r'$\alpha-\beta$ mean divergence')
-    ax.set_ylabel(r'$\alpha-\beta$ divergence')
-    ax.set_ylim(0, 0.35)
+def sort_sags_by_species(sag_ids, metadata):
+    '''
+    Sorts SAG IDs by species and returns dict with just species present.
+    '''
+    temp = metadata.sort_sags(sag_ids, by='species')
+    species_sorted_sags = {}
+    for s in temp.keys():
+        # Remove empty categories
+        if len(temp[s]) > 0:
+            species_sorted_sags[s] = temp[s]
+    return species_sorted_sags
 
-    for i, pair_divergences in enumerate(pair_divergence_values.T):
-        y_smooth = np.array([np.nanmean(pair_divergences[j:j + w]) if np.sum(np.isfinite(pair_divergences[j:j + w])) > 0 else np.nan for j in range(0, len(pair_divergences) - w, dx)])
-        x_smooth = np.array([np.mean(x_pair_divergences[j:j + w]) for j in range(0, len(species_divergence_table) - w, dx)])
-        #ax.plot(x_smooth, y_smooth, lw=0.5, c='gray', alpha=0.5)
-        ax.plot(x_smooth, y_smooth, lw=0.25, c='gray', alpha=0.3)
-        #ax.plot(x_smooth, y_smooth, lw=0.5, alpha=0.3)
-        #ax.plot(x_pair_divergences, pair_divergences, lw=0.25, alpha=0.3)
-
-    y_smooth = np.array([np.mean(species_divergence_table['species_divergence'].values[j:j + w]) for j in range(0, len(species_divergence_table) - w, dx)])
-    x_smooth = np.array([np.mean(species_divergence_table['genome_position'].values[j:j + w]) for j in range(0, len(species_divergence_table) - w, dx)])
-    ax.plot(x_smooth, y_smooth, c='k', lw=1.5)
-
-    plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}core_gene_species_divergences.pdf')
-
-    print(species_divergence_table.loc[species_divergence_table['species_divergence'] < 0.03, :])
-    typical_locus_filter = (species_divergence_table['species_divergence'] > 0.1) & (species_divergence_table['species_divergence'] < 0.2) & (species_divergence_table['genome_position'] > 0.6) & (species_divergence_table['genome_position'] < 0.7)
-    print(species_divergence_table.loc[typical_locus_filter, :])
 
 if __name__ == '__main__':
     # Define default variables
-    alignments_dir = '../results/single-cell/sscs_pangenome/_aln_results/'
-    figures_dir = '../figures/analysis/hybridization/'
     hybridization_table = '../results/single-cell/hybridization/sscs_hybridization_events.tsv'
     orthogroup_table = '../results/single-cell/sscs_pangenome/filtered_orthogroups/sscs_annotated_single_copy_orthogroup_presence.tsv'
 
@@ -613,17 +508,55 @@ if __name__ == '__main__':
     syn_homolog_map = SynHomologMap(build_maps=True)
 
     filtered_hybridization_table = hybridization_table.loc[hybridization_table.index[~hybridization_table.index.isin(fully_hybrid_contigs)], :].copy()
-    print(hybridization_table)
-    print(filtered_hybridization_table)
-    hybridization_counts = make_hybridization_counts_table(filtered_hybridization_table, pangenome_map, syn_homolog_map, metadata)
-    hybridization_counts.to_csv(f'{args.output_dir}sscs_hybridization_counts_table.tsv', sep='\t')
-    print(hybridization_counts.loc[hybridization_counts['total_transfers'] > 0, :])
-    print(hybridization_counts['total_transfers'].sum())
-    print(hybridization_table['num_hybrid_genes'].sum())
+    hybridization_counts = make_hybridization_counts_table(filtered_hybridization_table, pangenome_map, metadata)
+    hybridization_counts.to_csv(f'{args.output_dir}hybridization_counts_table.tsv', sep='\t')
+
+    if args.verbose:
+        print('Full hybridization table:')
+        print(hybridization_table)
+        print('\n')
+        print('Hybridization table excluding contings without same species genes:')
+        print(filtered_hybridization_table)
+        print('\n')
+        print('OGs with simple transfers:')
+        print(hybridization_counts.loc[hybridization_counts['total_transfers'] > 0, :])
+        print('\n\n')
 
     species_cluster_genomes = initialize_sequence_cluster_haplotypes(pangenome_map, metadata, syn_homolog_map, args.min_og_presence)
-    print(species_cluster_genomes)
     species_cluster_genomes = annotate_haplotype_gene_clusters(species_cluster_genomes, pangenome_map, metadata, args.min_og_presence, excluded_contigs=fully_hybrid_contigs)
-    species_cluster_genomes.to_csv(f'{args.output_dir}sscs_labeled_sequence_cluster_genomes.tsv', sep='\t')
-    print(species_cluster_genomes)
+    #species_cluster_genomes = annotate_haplotype_gene_clusters(species_cluster_genomes.iloc[:10], pangenome_map, metadata, args.min_og_presence)
+    #species_cluster_genomes = annotate_haplotype_gene_clusters(species_cluster_genomes, pangenome_map, metadata, args.min_og_presence)
+    species_cluster_genomes.to_csv(f'{args.output_dir}labeled_sequence_cluster_genomes.tsv', sep='\t')
 
+    species_cluster_genomes = pd.read_csv(f'{args.output_dir}labeled_sequence_cluster_genomes.tsv', sep='\t', index_col=0)
+
+    # Get SAG IDs sorted by species
+    sag_ids = pangenome_map.get_sag_ids()
+    species_sorted_sags = sort_sags_by_species(sag_ids, metadata)
+
+    '''
+    # Make test table
+    test_genomes = species_cluster_genomes.fillna('')
+    labels, label_counts = utils.sorted_unique(test_genomes[species_sorted_sags['A']].values)
+    label_list = []
+    for i in range(len(labels)):
+        label_list += label_counts[i] * [labels[i]]
+    label_list = np.random.permutation(label_list)
+    L = test_genomes.shape[0]
+    for i, s in enumerate(species_sorted_sags['A']):
+        test_genomes.loc[:, s] = label_list[i * L:(i + 1) * L]
+    test_genomes.loc[:, species_sorted_sags['Bp']] = 'Bp'
+
+    print(labels, label_counts, np.sum(label_counts[3:]))
+    print(counts_validation)
+    print(counts_validation.iloc[:, 4:].sum(axis=0))
+    '''
+    
+    counts_validation = count_gene_hybrids(species_cluster_genomes, species_sorted_sags)
+    counts_validation.to_csv(f'{args.output_dir}hybridization_counts_table_validation.tsv', sep='\t')
+    print(hybridization_counts)
+    print(counts_validation)
+
+    if args.verbose:
+        print(species_cluster_genomes)
+        print(counts_validation)
