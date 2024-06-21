@@ -59,6 +59,9 @@ if __name__ == '__main__':
         cleaned_og_table.loc[i, 'avg_length'] = pg_utils.calculate_mean_gene_length(gene_ids)
     cleaned_og_table.loc[:, 'seqs_per_cell'] = cleaned_og_table['num_seqs'] / cleaned_og_table['num_cells']
 
+    # Remove empty clusters
+    cleaned_og_table = cleaned_og_table.loc[cleaned_og_table['num_seqs'] > 0, :]
+
     # Save output
     cleaned_og_table.to_csv(args.output_file, sep='\t')
 
