@@ -13,6 +13,7 @@
 ml python/3.6
 ml py-scipy/1.4.1_py36
 ml py-pandas/1.0.3_py36
+ml py-biopython/1.79_py36
 
 #data_dir='../results/tests/pangenome_construction/sscs_v3/'
 data_dir='../results/single-cell/sscs_pangenome/'
@@ -20,7 +21,7 @@ aln_dir='../results/single-cell/alignments/v2/core_ogs_cleaned/'
 out_dir='../results/single-cell/sscs_pangenome_v2/pdist/'
 
 num_jobs=10
-SLURM_ARRAY_TASK_ID=1
+#SLURM_ARRAY_TASK_ID=1
 i=$((${SLURM_ARRAY_TASK_ID} - 1))
 
 aln_files=($(ls ${aln_dir}*.fna | grep -v 'rRNA'))
