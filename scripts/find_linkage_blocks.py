@@ -11,8 +11,6 @@ import alignment_tools as align_utils
 import pangenome_utils as pg_utils
 import calculate_linkage_disequilibria as ld
 import pg_find_orthogroup_clusters as cluster_utils
-import analyze_beta_hybridization as hybrid_tools
-import summarize_snp_blocks as snp_blocks
 import scipy.cluster.hierarchy as hclust
 from pangenome_utils import PangenomeMap
 from metadata_map import MetadataMap
@@ -49,38 +47,6 @@ def get_linkage_blocks(aln, x_snps=None, rsq_threshold=0.6, seed_size_threshold=
     return cluster_dict
 
 
-def test_block_finder(args):
-    pangenome_map = PangenomeMap(f_orthogroup_table=f_orthogroup_table)
-    metadata = MetadataMap()
-
-    '''
-    og_id = 'YSG_0556'
-    species = 'Bp'
-    sites = '4D'
-    f_aln = f'../results/single-cell/snp_blocks/synbp/{og_id}_4D_aln.fna'
-
-    sag_ids = pangenome_map.get_sag_ids()
-    species_sorted_sags = metadata.sort_sags(sag_ids, by='species')
-    sampled_sag_ids = species_sorted_sags[species]
-
-    block_stats, haplotype_clustered_genomes = summarize_linkage_blocks(f_aln, og_id, sampled_sag_ids, pangenome_map, metadata, args)
-    '''
-    og_id = 'YSG_0622b'
-    species = 'Bp'
-    sites = 'all'
-    f_aln = f'../results/single-cell/alignments/core_ogs_cleaned/{og_id}_cleaned_aln.fna'
-
-    sag_ids = pangenome_map.get_sag_ids()
-    species_sorted_sags = metadata.sort_sags(sag_ids, by='species')
-    sampled_sag_ids = species_sorted_sags[species]
-
-    block_stats, haplotype_clustered_genomes = summarize_linkage_blocks(f_aln, og_id, sampled_sag_ids, pangenome_map, metadata, args)
-    print(block_stats)
-    print(haplotype_clustered_genomes)
-
-    print(block_stats.iloc[0, :])
-
-
 def summarize_linkage_blocks(f_aln, og_id, sampled_sag_ids, pangenome_map, metadata, args, out_sample_sag_ids=None, consensus_id_head='consensus'):
     aln = read_main_cloud_alignment(f_aln, pangenome_map, metadata)
     species_gene_ids = pangenome_map.get_og_gene_ids(og_id, sag_ids=sampled_sag_ids)
@@ -112,7 +78,7 @@ def summarize_linkage_blocks(f_aln, og_id, sampled_sag_ids, pangenome_map, metad
 
 def read_main_cloud_alignment(f_aln, pangenome_map, metadata, dc_dict={'A':0.15, 'Bp':0.5, 'C':0.}):
     aln = seq_utils.read_alignment(f_aln)
-    species_sorted_gene_ids = hybrid_tools.sort_aln_rec_ids(aln, pangenome_map, metadata)
+    species_sorted_gene_ids = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
     species_main_cloud_alns = []
     for species in species_sorted_gene_ids:
         if len(species_sorted_gene_ids[species]) > 0:
@@ -358,7 +324,7 @@ def read_og_id_from_fname(f_aln):
 #def calculate_linkage_runs(f_aln, pangenome_map, metadata, snp_frequency_cutoff, rsq_min, min_block_length):
 def calculate_linkage_runs(f_aln, pangenome_map, metadata, args):
     aln = read_main_cloud_alignment(f_aln, pangenome_map, metadata)
-    species_sorted_gene_ids = hybrid_tools.sort_aln_rec_ids(aln, pangenome_map, metadata)
+    species_sorted_gene_ids = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
 
     if args.species in species_sorted_gene_ids:
         species_gene_ids = species_sorted_gene_ids[args.species]
@@ -367,6 +333,42 @@ def calculate_linkage_runs(f_aln, pangenome_map, metadata, args):
         linkage_blocks = []
 
     return linkage_blocks
+
+
+def test_block_finder(args):
+    pangenome_map = PangenomeMap(f_orthogroup_table=args.orthogroup_table)
+    metadata = MetadataMap()
+
+    '''
+    og_id = 'YSG_0556'
+    species = 'Bp'
+    sites = '4D'
+    f_aln = f'../results/single-cell/snp_blocks/synbp/{og_id}_4D_aln.fna'
+
+    sag_ids = pangenome_map.get_sag_ids()
+    species_sorted_sags = metadata.sort_sags(sag_ids, by='species')
+    sampled_sag_ids = species_sorted_sags[species]
+
+    block_stats, haplotype_clustered_genomes = summarize_linkage_blocks(f_aln, og_id, sampled_sag_ids, pangenome_map, metadata, args)
+    og_id = 'YSG_0622b'
+    species = 'Bp'
+    sites = 'all'
+    f_aln = f'../results/single-cell/alignments/core_ogs_cleaned/{og_id}_cleaned_aln.fna'
+    '''
+    og_id = 'YSG_0608b'
+    species = 'Bp'
+    sites = 'all'
+    f_aln = f'../results/single-cell/alignments/v2/core_ogs_cleaned/{og_id}_cleaned_aln.fna'
+
+    sag_ids = pangenome_map.get_sag_ids()
+    species_sorted_sags = metadata.sort_sags(sag_ids, by='species')
+    sampled_sag_ids = species_sorted_sags[species]
+
+    block_stats, haplotype_clustered_genomes = summarize_linkage_blocks(f_aln, og_id, sampled_sag_ids, pangenome_map, metadata, args)
+    print(block_stats)
+    print(haplotype_clustered_genomes)
+
+    print(block_stats.iloc[0, :])
 
 
 if __name__ == '__main__':
