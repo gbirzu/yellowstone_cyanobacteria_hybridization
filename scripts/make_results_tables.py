@@ -80,7 +80,8 @@ def make_gene_nucleotide_diversity_table(pangenome_map, species_cluster_genomes,
     data_cols =[]
     for sites in ['pS', 'pN']:
         for j, s2 in enumerate(species):
-            data_cols.append(f'{s2}_{sites}_mean')
+            for metric in ['mean', 'std', 'min', 'max']:
+                data_cols.append(f'{s2}_{sites}_{metric}')
         for j, s2 in enumerate(species):
             for i in range(j):
                 s1 = species[i]
@@ -118,6 +119,9 @@ def make_gene_nucleotide_diversity_table(pangenome_map, species_cluster_genomes,
                     if len(s2_gene_ids) > 1:
                         pdist_values = utils.get_matrix_triangle_values(pdist.loc[s2_gene_ids, s2_gene_ids].values, k=1)
                         diversity_table.loc[og_id, f'{s2}_{table}_mean'] = np.mean(pdist_values)
+                        diversity_table.loc[og_id, f'{s2}_{table}_std'] = np.std(pdist_values)
+                        diversity_table.loc[og_id, f'{s2}_{table}_min'] = np.min(pdist_values)
+                        diversity_table.loc[og_id, f'{s2}_{table}_max'] = np.max(pdist_values)
                     #print(s2, s2_gene_ids, pdist_values)
             else:
                 print(f_pdist)
@@ -152,15 +156,21 @@ def make_single_site_tables(pangenome_map, metadata, alignments_dir, args, speci
     og_table = pangenome_map.og_table
     species_sorted_sags = metadata.sort_sags(pangenome_map.get_sag_ids(), by='species')
 
+    # Add tag for main cloud analysis
+    if main_cloud:
+        main_cloud_tag = '_main_cloud'
+    else:
+        main_cloud_tag = ''
+
     for species in ['A', 'Bp']:
         species_core_ogs = og_table.loc[og_table[f'core_{species}'] == 'Yes', 'parent_og_id'].unique()
         species_sag_ids = species_sorted_sags[species]
         num_site_alleles, mutation_spectra = calculate_single_site_statistics(pangenome_map, alignments_dir, species_sag_ids, species_core_ogs, main_cloud=main_cloud, sites=sites, aln_ext=aln_ext)
 
         # Save results
-        f_num_site_alleles = f'{args.output_dir}{species}_num_site_alleles_{sites}.tsv'
+        f_num_site_alleles = f'{args.output_dir}{species}_num_site_alleles{main_cloud_tag}_{sites}.tsv'
         num_site_alleles.to_csv(f_num_site_alleles, sep='\t')
-        f_mutation_spectra = f'{args.output_dir}{species}_mutation_spectra_{sites}.tsv'
+        f_mutation_spectra = f'{args.output_dir}{species}_mutation_spectra{main_cloud_tag}_{sites}.tsv'
         mutation_spectra.to_csv(f_mutation_spectra, sep='\t')
 
         if args.verbose:
@@ -482,6 +492,7 @@ if __name__ == '__main__':
 
     pangenome_map = pg_utils.PangenomeMap(f_orthogroup_table=args.orthogroup_table)
     metadata = MetadataMap()
-    #make_gene_tables(pangenome_map, args)
-    #make_single_site_tables(pangenome_map, metadata, '../results/single-cell/alignments/v2/core_ogs_cleaned/', args)
-    make_hybridization_tables(pangenome_map, metadata, args)
+    make_gene_tables(pangenome_map, args)
+    #make_single_site_tables(pangenome_map, metadata, '../results/single-cell/alignments/v2/core_ogs_cleaned/', args, sites='4D')
+    #make_single_site_tables(pangenome_map, metadata, '../results/single-cell/alignments/v2/core_ogs_cleaned/', args, sites='all_sites')
+    #make_hybridization_tables(pangenome_map, metadata, args)
