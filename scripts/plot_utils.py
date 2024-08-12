@@ -1202,6 +1202,7 @@ def plot_alignment(aln, yticks='auto', annotation=None, marker_size=2, aln_type=
                 x = -1.5 * np.ones(len(annotation_idx[label]))
                 ax.scatter(x, annotation_idx[label], s=marker_size**2, ec='none', fc=color_dict[label], clip_on=False)
             elif annotation_style == 'lines':
+                annot_lw = marker_size
                 x0 = -annot_lw
                 x1 = 0
                 yoff = 0.5

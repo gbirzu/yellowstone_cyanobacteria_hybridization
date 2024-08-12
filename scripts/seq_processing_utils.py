@@ -485,6 +485,16 @@ def map_gene_to_sag_id(gene_id, pangenome_map, mapped_ids, assign_unique_ids):
         mapped_id = naive_map
     return mapped_id
 
+def map_pdist_to_sags(pdist, pangenome_map, assign_unique_ids):
+    idx_dict = {}
+    sag_ids = []
+    for g in pdist.index.values:
+        s = map_gene_to_sag_id(g, pangenome_map, sag_ids, assign_unique_ids)
+        idx_dict[g] = s
+        sag_ids.append(s)
+    return pdist.rename(index=idx_dict, columns=idx_dict)
+    
+
 def read_seqs_and_map_sag_ids(f_seqs, pangenome_map, assign_unique_ids=False):
     with open(f_seqs, 'r') as in_handle:
         seq_records = SeqIO.parse(in_handle, 'fasta')

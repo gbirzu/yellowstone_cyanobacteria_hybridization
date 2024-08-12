@@ -492,7 +492,9 @@ if __name__ == '__main__':
 
     pangenome_map = pg_utils.PangenomeMap(f_orthogroup_table=args.orthogroup_table)
     metadata = MetadataMap()
-    make_gene_tables(pangenome_map, args)
+    #make_gene_tables(pangenome_map, args)
     #make_single_site_tables(pangenome_map, metadata, '../results/single-cell/alignments/v2/core_ogs_cleaned/', args, sites='4D')
     #make_single_site_tables(pangenome_map, metadata, '../results/single-cell/alignments/v2/core_ogs_cleaned/', args, sites='all_sites')
     #make_hybridization_tables(pangenome_map, metadata, args)
+
+
