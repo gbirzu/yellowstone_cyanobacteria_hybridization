@@ -26,13 +26,23 @@ mpl.rcParams['text.usetex'] = True
 plt.rc('text.latex', preamble=r'\usepackage{amsmath}')
 
 fig_count = 1
+panel_count = 1
+
+
+def print_break():
+    print('\n')
+    print('-' * 60)
+    print('-' * 60)
+    print('\n')
+
 
 
 ###########################################################
 # Fig. 1 panels: Genome-level analysis
 ###########################################################
-def make_genome_level_figure(pangenome_map, args, rng, fig_number='', ax_label_size=12, tick_size=12):
-    print('Plotting Fig. 1...\n\n')
+def make_genome_level_figure(pangenome_map, args, rng, ax_label_size=12, tick_size=12):
+    global fig_count
+    print(f'Plotting Fig. {fig_count}...\n')
 
     metadata = MetadataMap()
     ncols = 2
@@ -56,7 +66,9 @@ def make_genome_level_figure(pangenome_map, args, rng, fig_number='', ax_label_s
     plot_species_frequency_across_samples(ax, species_relative_abundances, fig, ms=6, ax_label='B', label_size=ax_label_size, tick_size=tick_size)
 
     gspec.tight_layout(fig)
-    plt.savefig(f'{args.figures_dir}fig{fig_number}_genome_level.pdf')
+    plt.savefig(f'{args.figures_dir}fig{fig_count}_genome_level.pdf')
+
+    fig_count += 1
 
 
 def calculate_reference_pident(alignment_dir, metric='median', d_species_cutoff=0.075, verbose=False):
@@ -259,8 +271,9 @@ def plot_species_frequency_across_samples(ax, sample_relative_abundances, fig, l
 # Fig. 2 panels: Gene-level analysis
 ###########################################################
 
-def make_gene_level_figure(pangenome_map, args, rng, fig_number=''):
-    print('Plotting Fig. 2 panels...\n\n')
+def make_gene_level_figure(pangenome_map, args, rng):
+    global fig_count
+    print(f'Plotting Fig. {fig_count} panels...\n')
 
     hybridization_dir = f'{args.results_dir}hybridization/'
     species_cluster_genomes = pd.read_csv(f'{hybridization_dir}labeled_sequence_cluster_genomes.tsv', sep='\t', index_col=0)
@@ -299,7 +312,7 @@ def make_gene_level_figure(pangenome_map, args, rng, fig_number=''):
     ax = plt.subplot(inner_grid[1, 1])
     ax.text(0.0, 0.95, 'B', transform=ax.transAxes + trans, fontsize=10, fontweight='bold', va='center', usetex=False)
     plot_hybrid_gene_frequencies(ax, synbp_hybrid_donor_frequency_table, 'Bp', xlabel="", lw=0.75, ms=5, ylabel='', legend_loc='upper right', legend_size=8, tick_size=10)
-    plt.savefig(f'{args.figures_dir}fig{fig_number}A-C.pdf', dpi=1000)
+    plt.savefig(f'{args.figures_dir}fig{fig_count}A-C.pdf', dpi=1000)
 
     # Read divergence table
     f_gene_diversity = f'{args.data_dir}gene_diversity_table.tsv'
@@ -318,10 +331,10 @@ def make_gene_level_figure(pangenome_map, args, rng, fig_number=''):
     ax_gt = plt.subplot(gspec[2, :])
     ax_gt.text(-0.03, 0.8, 'C', transform=ax_gt.transAxes + trans, fontsize=10, fontweight='bold', va='bottom', usetex=False)
     plot_genomic_troughes_panel(ax_gt, gene_diversity_table, species_cluster_genomes, pangenome_map, metadata, rng, pos_column='osbp_location', ylim=(0, 1.0), yticks=[0, 0.5, 1], d_low=0.1, random_sample=False, highlight=example_ogs, xlabel_size=14, tick_size=10)
-    plt.savefig(f'{args.figures_dir}fig{fig_number}A-C.pdf', dpi=1000)
+    plt.savefig(f'{args.figures_dir}fig{fig_count}A-C.pdf', dpi=1000)
 
     for o in example_ogs:
-        plot_species_divergence_blowup(o, gene_diversity_table, savefig=f'{args.figures_dir}fig{fig_number}C_{o}.pdf', ylabel='', yticks=[0, 0.5, 1.], num_xticks=4, tick_size=10)
+        plot_species_divergence_blowup(o, gene_diversity_table, savefig=f'{args.figures_dir}fig{fig_count}C_{o}.pdf', ylabel='', yticks=[0, 0.5, 1.], num_xticks=4, tick_size=10)
 
 
     subsample_size = 40
@@ -356,7 +369,10 @@ def make_gene_level_figure(pangenome_map, args, rng, fig_number=''):
         ax.set_xticklabels([f'${x}$' for x in xticklabels])
         ax.set_yticks([])
         plt.tight_layout()
-        plt.savefig(f'{args.figures_dir}fig{fig_number}{axes_labels[i]}.pdf', dpi=1000)
+        plt.savefig(f'{args.figures_dir}fig{fig_count}{axes_labels[i]}.pdf', dpi=1000)
+
+    fig_count += 1
+    print_break()
 
 
 def make_donor_frequency_table(species_cluster_genomes, species, pangenome_map, metadata):
@@ -593,8 +609,9 @@ def plot_species_divergence_blowup(og_id, species_divergence_table, savefig=None
 # Fig. 3 panels: Nucleotide-level analysis
 ###########################################################
 
-def make_snp_level_panels(pangenome_map, args, rng, fig_number='3', fig_dpi=1000, panel_label_fs=14, tick_fs=14):
-    print(f'Plotting Fig. {fig_number} panels...\n\n')
+def make_snp_level_panels(pangenome_map, args, rng, fig_dpi=1000, panel_label_fs=14, tick_fs=14):
+    global fig_count
+    print(f'Plotting Fig. {fig_count} panels...\n')
 
     metadata = MetadataMap()
     core_og_ids = pangenome_map.get_core_og_ids(metadata, min_og_frequency=0.2, og_type='parent_og_id', output_type='dict')
@@ -622,7 +639,7 @@ def make_snp_level_panels(pangenome_map, args, rng, fig_number='3', fig_dpi=1000
     ax.text(-0.05, 1, 'A', transform=ax.transAxes, fontsize=panel_label_fs, fontweight='bold', va='center', usetex=False)
 
     plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}fig{fig_number}A1.pdf', dpi=800)
+    plt.savefig(f'{args.figures_dir}fig{fig_count}A1.pdf', dpi=800)
     plt.close()
 
 
@@ -632,7 +649,7 @@ def make_snp_level_panels(pangenome_map, args, rng, fig_number='3', fig_dpi=1000
     aln_consensus = plot_block_alignment_panel(ax, 1, example_og_id, 'A', pangenome_map, metadata, syna_block_stats, syna_block_haplotypes, args, grid=True, label_fs=tick_fs, aspect=5)
     plot_nucleotide_legend(fig, ax, fontsize=10)
     plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}fig{fig_number}A2.pdf', dpi=1000)
+    plt.savefig(f'{args.figures_dir}fig{fig_count}A2.pdf', dpi=1000)
     plt.close()
 
 
@@ -651,7 +668,7 @@ def make_snp_level_panels(pangenome_map, args, rng, fig_number='3', fig_dpi=1000
     cax = fig.colorbar(cmap, ax=ax, ticks=np.linspace(vrange[0], vrange[1], 3), fraction=0.046, pad=0.04)
     cax.ax.tick_params(labelsize=10)
     plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}fig{fig_number}A3.pdf', dpi=1000)
+    plt.savefig(f'{args.figures_dir}fig{fig_count}A3.pdf', dpi=1000)
     plt.close()
 
 
@@ -682,7 +699,7 @@ def make_snp_level_panels(pangenome_map, args, rng, fig_number='3', fig_dpi=1000
     ax.text(-0.25, 1, 'B', transform=ax.transAxes, fontsize=panel_label_fs, fontweight='bold', va='center', usetex=False)
     plot_marginal(gspec[1, 1], x_arr, xlim=None, ylim=dlim, bins=x_bins, spines=['left'], orientation='horizontal')
 
-    plt.savefig(f'{args.figures_dir}fig{fig_number}B.pdf', dpi=fig_dpi)
+    plt.savefig(f'{args.figures_dir}fig{fig_count}B.pdf', dpi=fig_dpi)
     plt.close()
 
 
@@ -699,7 +716,7 @@ def make_snp_level_panels(pangenome_map, args, rng, fig_number='3', fig_dpi=1000
     ax.text(-0.25, 1, 'C', transform=ax.transAxes, fontsize=panel_label_fs, fontweight='bold', va='center', usetex=False)
     plot_marginal(gspec[1, 1], x_arr, xlim=None, ylim=dlim, bins=x_bins, spines=['left'], orientation='horizontal')
 
-    plt.savefig(f'{args.figures_dir}fig{fig_number}C.pdf', dpi=fig_dpi)
+    plt.savefig(f'{args.figures_dir}fig{fig_count}C.pdf', dpi=fig_dpi)
     plt.close()
 
     # Plot block linkage
@@ -709,8 +726,10 @@ def make_snp_level_panels(pangenome_map, args, rng, fig_number='3', fig_dpi=1000
     ax.set_ylim(2E-6, 1)
     ax.set_ylim(0, 0.08)
     plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}fig{fig_number}D.pdf', dpi=fig_dpi)
+    plt.savefig(f'{args.figures_dir}fig{fig_count}D.pdf', dpi=fig_dpi)
     plt.close()
+
+    fig_count += 1
 
 
 def plot_alignment_blocks_panel(ax, og_id, pangenome_map, metadata, syna_block_stats, syna_block_haplotypes, args, annot_lw=8, yticks=[], i_ref=0, x0=0, x1=1000):
@@ -1083,19 +1102,25 @@ def calculate_rsq(block_haplotypes, randomize=False, rng=None):
     return Dsq / (Z + (Z <= 0.0)), num_samples
 
 
+
+###########################################################
+# Fig. 2-4, 6 panels: Gene genetic diversity
+###########################################################
+
 def make_genetic_diversity_panels(pangenome_map, args, low_diversity_cutoff=0.05):
+    global fig_count
+    print(f'Plotting Fig. {fig_count} panels...\n')
+
     metadata = MetadataMap()
     gene_diversity_table = pd.read_csv(f'{args.data_dir}gene_diversity_table.tsv', sep='\t', index_col=0)
+    plot_diversity_along_genome(gene_diversity_table, metadata, args, lw=1.0)
 
     # Get single-site statistics tables
-    #syna_num_site_alleles = pd.read_csv(f'{args.data_dir}A_num_site_alleles_main_cloud_4D.tsv', sep='\t')
     syna_num_site_alleles = pd.read_csv(f'{args.data_dir}A_num_site_alleles_4D.tsv', sep='\t', index_col=0)
     low_diversity_ogs = np.array(syna_num_site_alleles.loc[syna_num_site_alleles['fraction_polymorphic'] < low_diversity_cutoff, :].index)
     high_diversity_ogs = np.array([o for o in syna_num_site_alleles.index if o not in low_diversity_ogs])
     syna_num_site_alleles['num_snps'] = syna_num_site_alleles[['2', '3', '4']].sum(axis=1)
     n, n_counts = utils.sorted_unique(syna_num_site_alleles.loc[low_diversity_ogs, 'num_snps'], sort_by='tag', sort='ascending')
-    print(n)
-    print(n_counts, np.sum(n_counts[(n > 1) & (n < 10)]), np.sum(n_counts), len(low_diversity_ogs))
 
     #syna_mean_diversity = syna_num_site_alleles.loc[low_diversity_ogs, "piS"].mean()
     syna_num_site_alleles['piS'] = gene_diversity_table.loc[syna_num_site_alleles.index.values, 'A_pS_mean']
@@ -1116,7 +1141,7 @@ def make_genetic_diversity_panels(pangenome_map, args, low_diversity_cutoff=0.05
 
     rng = np.random.default_rng(args.random_seed)
     plot_gene_polymorphisms_figure(syna_num_site_alleles, low_diversity_ogs, high_diversity_ogs, metadata, rng, args, low_diversity_cutoff=low_diversity_cutoff)
-    plot_gene_diversity_distribution(syna_num_site_alleles, low_diversity_ogs, high_diversity_ogs, 'A', args)
+    #plot_gene_diversity_distribution(syna_num_site_alleles, low_diversity_ogs, high_diversity_ogs, 'A', args)
 
     # Bp figures
     synbp_num_site_alleles = pd.read_csv(f'{args.data_dir}Bp_num_site_alleles_4D.tsv', sep='\t', index_col=0)
@@ -1135,20 +1160,26 @@ def make_genetic_diversity_panels(pangenome_map, args, low_diversity_cutoff=0.05
     print(f'\t{num_total_snps:.0f} SNPs; {num_block_snps:.0f} SNPs in blocks; {synbp_num_site_alleles_all_sites.loc[:, "L"].sum():.0f} sites; fraction of block SNPs {num_block_snps / num_total_snps:.3f}')
 
     plot_gene_polymorphisms_figure(synbp_num_site_alleles, synbp_low_diversity_ogs, synbp_high_diversity_ogs, metadata, rng, args, species='Bp', low_diversity_cutoff=low_diversity_cutoff, inset=False, fit='mean')
-    plot_gene_diversity_distribution(synbp_num_site_alleles, synbp_low_diversity_ogs, synbp_high_diversity_ogs, 'Bp', args)
+    #plot_gene_diversity_distribution(synbp_num_site_alleles, synbp_low_diversity_ogs, synbp_high_diversity_ogs, 'Bp', args)
 
     plot_mixed_gene_diversity_distribution(syna_num_site_alleles, synbp_num_site_alleles, low_diversity_ogs, high_diversity_ogs, args)
+    print_break()
 
-    plot_diversity_along_genome(gene_diversity_table, metadata, args)
+    fig_count = 6
+    print(f'Plotting Fig. {fig_count} panels...\n')
     plot_species_divergence_distribution(gene_diversity_table, syna_num_site_alleles, synbp_num_site_alleles, low_diversity_ogs, rng, args)
     plot_genomic_trough_diversity(gene_diversity_table, syna_num_site_alleles, synbp_num_site_alleles, low_diversity_ogs, rng, args)
-    plot_genomic_trough_diversity(gene_diversity_table, syna_num_site_alleles, synbp_num_site_alleles, low_diversity_ogs, rng, args, bootstrap=True)
 
     A_backbone_piS = syna_num_site_alleles.loc[low_diversity_ogs, 'piS'].mean()
     plot_alpha_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alleles, synbp_num_site_alleles, A_backbone_piS, rng, args, dx1=0.4)
 
+    print_break()
+    fig_count = 5
+
+
 
 def plot_gene_polymorphisms_figure(num_site_alleles, low_diversity_ogs, high_diversity_ogs, metadata, rng, args, species='A', low_diversity_cutoff=0.05, ms=3, inset=True, fit='zero', label_fs=14):
+    global panel_count 
     global fig_count 
     
     # Get alpha SAG IDs
@@ -1169,11 +1200,12 @@ def plot_gene_polymorphisms_figure(num_site_alleles, low_diversity_ogs, high_div
 
 
     plt.tight_layout()
-    #plt.savefig(f'{args.figures_dir}Panel{fig_count}_{species}_diversity_partition.pdf')
-    plt.savefig(f'{args.figures_dir}Panel{fig_count}_{species}_fraction_polymorphisms.pdf')
+    #plt.savefig(f'{args.figures_dir}Panel{panel_count}_{species}_diversity_partition.pdf')
+    #plt.savefig(f'{args.figures_dir}Panel{panel_count}_{species}_fraction_polymorphisms.pdf')
+    plt.savefig(f'{args.figures_dir}fig{fig_count}_{species}_fraction_polymorphisms.pdf')
     plt.close()
 
-    fig_count += 1
+    panel_count += 1
 
 
 def plot_polymorphic_sites_null_comparison(ax, num_site_alleles, low_diversity_ogs, syna_sag_ids, rng, og_ids=None, label='data', xmax=1., num_bins=30, low_diversity_cutoff=0.05, ms=3, add_null=True, density=True, null_color='k', inset=True, fit='zero'):
@@ -1250,6 +1282,7 @@ def plot_alpha_loci_diversity(ax, num_site_alleles, low_diversity_ogs, high_dive
 
 
 def plot_gene_diversity_distribution(num_site_alleles, low_diversity_ogs, high_diversity_ogs, species, args, label_fs=14):
+    global panel_count
     global fig_count
 
     fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
@@ -1267,12 +1300,14 @@ def plot_gene_diversity_distribution(num_site_alleles, low_diversity_ogs, high_d
     ax.set_xticks([0, 1E-4, 1E-3, 1E-2, 1E-1])
 
     plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}Panel{fig_count}_{species}_gene_diversity_distribution.pdf')
+    #plt.savefig(f'{args.figures_dir}Panel{panel_count}_{species}_gene_diversity_distribution.pdf')
+    plt.savefig(f'{args.figures_dir}fig{fig_count}_{species}_gene_diversity_distribution.pdf')
     plt.close()
-    fig_count += 1
+    panel_count += 1
 
 
 def plot_mixed_gene_diversity_distribution(syna_num_site_alleles, synbp_num_site_alleles, low_diversity_ogs, high_diversity_ogs, args, epsilon=2E-5, xlim=(2E-5, 0.25), num_bins=50, label_fs=14, lw=2.5, alpha=0.9):
+    global panel_count
     global fig_count
 
     fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
@@ -1301,62 +1336,41 @@ def plot_mixed_gene_diversity_distribution(syna_num_site_alleles, synbp_num_site
     ax.legend(fontsize=12, frameon=False, loc='upper left')
 
     plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}Panel{fig_count}_mixed_species_gene_diversity_distribution.pdf')
+    #plt.savefig(f'{args.figures_dir}Panel{panel_count}_mixed_species_gene_diversity_distribution.pdf')
+    plt.savefig(f'{args.figures_dir}fig{fig_count}_mixed_species_gene_diversity_distribution.pdf')
     plt.close()
 
-    fig_count += 1
+    panel_count += 1
 
 
-def plot_diversity_along_genome(gene_diversity_table, metadata, args):
+def plot_diversity_along_genome(gene_diversity_table, metadata, args, lw=1.0):
+    global panel_count 
     global fig_count 
     
-    fig = plt.figure(figsize=(double_col_width, 1.1 * single_col_width))
-    for i, species in enumerate(['A', 'Bp']):
-        ax = fig.add_subplot(2, 1, i + 1)
-        plot_species_diversity_along_genome(ax, gene_diversity_table, metadata, species=species)
-    plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}Panel{fig_count}_core_gene_diversity.pdf')
-    plt.close()
-    fig_count += 1
-
     fig = plt.figure(figsize=(double_col_width, 0.7 * single_col_width))
     ax = fig.add_subplot(111)
     label_dict = {'A':r'$\alpha$', 'Bp':r'$\beta$'}
     #for i, species in enumerate(['A', 'Bp']):
     for i, species in enumerate(['Bp', 'A']):
-        plot_species_diversity_along_genome(ax, gene_diversity_table, metadata, species=species, label=label_dict[species], alpha=0.9, lw=1.0, label_fs=13, std=True)
+        plot_species_diversity_along_genome(ax, gene_diversity_table, metadata, species=species, label=label_dict[species], alpha=0.9, lw=lw, label_fs=13, std=True, fill_alpha=0.7)
     ax.set_xlabel('genome position (Mb)', fontsize=13)
     ax.set_xlim(0, 3.25)
     ax.set_ylim(1E-3, 3E-1)
     ax.legend(fontsize=10, frameon=False)
     plt.tight_layout(rect=(0, 0, 1, 0.93))
-    plt.savefig(f'{args.figures_dir}Panel{fig_count}_core_gene_diversity.pdf')
+    #plt.savefig(f'{args.figures_dir}Panel{panel_count}_core_gene_diversity.pdf')
+    plt.savefig(f'{args.figures_dir}fig{fig_count}_core_gene_diversity.pdf')
     plt.close()
-    fig_count += 1
-
-    for species in ['A', 'Bp']:
-        fig = plt.figure(figsize=(double_col_width, 0.7 * single_col_width))
-        ax = fig.add_subplot(111)
-        plot_species_diversity_along_genome(ax, gene_diversity_table, metadata, species=species, lw=1.5, label_fs=13, std=True)
-        ax.set_xlabel('OS-A genome position (Mb)', fontsize=13)
-        ax.set_xlim(0, 3.25)
-        ax.set_ylim(1E-3, 3E-1)
-        #ax.legend(fontsize=10, frameon=False)
-        plt.tight_layout(rect=(0, 0, 1, 0.93))
-        plt.savefig(f'{args.figures_dir}Panel{fig_count}_{species}_core_gene_diversity.pdf')
-        plt.close()
-        fig_count += 1
+    panel_count += 1
 
 
-def plot_species_diversity_along_genome(ax, gene_diversity_table, metadata, species='A', dx=2, w=5, label='', label_fs=14, lw=1.5, alpha=1.0, std=False, minmax=False, plot_kwargs={}):
-    print(gene_diversity_table)
-
+def plot_species_diversity_along_genome(ax, gene_diversity_table, metadata, species='A', dx=2, w=5, label='', label_fs=14, lw=1.5, alpha=1.0, std=False, minmax=False, fill_alpha=0.7, plot_kwargs={}):
     if species == 'A':
         sorted_mapped_og_ids = gene_diversity_table['osa_location'].dropna().sort_values().index.values
     elif species == 'Bp':
         sorted_mapped_og_ids = gene_diversity_table['osbp_location'].dropna().sort_values().index.values
 
-    species_divergence_table = pd.DataFrame(index=sorted_mapped_og_ids, columns=['genome_position', 'species_diversity'])
+    species_divergence_table = pd.DataFrame(index=sorted_mapped_og_ids, columns=['genome_position', 'species_diversity'], dtype=float)
     if species == 'A':
         species_divergence_table['genome_position'] = gene_diversity_table.loc[sorted_mapped_og_ids, 'osa_location']
         xlabel = "OS-A genome position (Mb)"
@@ -1389,7 +1403,10 @@ def plot_species_diversity_along_genome(ax, gene_diversity_table, metadata, spec
     if std:
         species_divergence_table['std'] = gene_diversity_table.loc[sorted_mapped_og_ids, f'{species}_pS_std']
         dy_std = np.array([np.mean(species_divergence_table['std'].values[j:j + w]) for j in range(0, len(species_divergence_table) - w, dx)])
-        ax.fill_between(x_smooth, y_smooth - dy_std, y_smooth + dy_std, color=sample_color, alpha=0.7)
+        ax.fill_between(x_smooth, y_smooth - dy_std, y_smooth + dy_std, color=sample_color, alpha=fill_alpha)
+        #ax.fill_between(x_smooth, y_smooth - dy_std, y_smooth + dy_std, color=sample_color, alpha=0.7)
+        #ax.plot(x_smooth, y_smooth - dy_std, color=mean_color, lw=0.25, zorder=3)
+        #ax.plot(x_smooth, y_smooth + dy_std, color=mean_color, lw=0.25, zorder=3)
 
     if minmax:
         species_divergence_table['min'] = gene_diversity_table.loc[sorted_mapped_og_ids, f'{species}_pS_min']
@@ -1402,6 +1419,7 @@ def plot_species_diversity_along_genome(ax, gene_diversity_table, metadata, spec
 
 
 def plot_species_divergence_distribution(gene_diversity_table, syna_num_site_alleles, synbp_num_site_alleles, control_loci, rng, args, num_bins=20, label_fs=14, epsilon=2E-5, dc=0.15):
+    global panel_count
     global fig_count
 
     fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
@@ -1413,16 +1431,17 @@ def plot_species_divergence_distribution(gene_diversity_table, syna_num_site_all
     ax.hist(gene_diversity_table['A-Bp_pS_mean'], bins=100)
     ax.axvline(dc, lw=2, color='tab:red')
     plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}Panel{fig_count}_A-Bp_dS_distribution.pdf')
+    #plt.savefig(f'{args.figures_dir}Panel{panel_count}_A-Bp_dS_distribution.pdf')
+    plt.savefig(f'{args.figures_dir}fig{fig_count}_A-Bp_dS_distribution.pdf')
     plt.close()
-    fig_count += 1
+    panel_count += 1
 
 
 def plot_genomic_trough_diversity(gene_diversity_table, syna_num_site_alleles, synbp_num_site_alleles, control_loci, rng, args, num_bins=20, label_fs=14, epsilon=2E-5, dc=0.15, bootstrap=False):
+    global panel_count
     global fig_count
 
     gt_idx = gene_diversity_table.loc[gene_diversity_table['A-Bp_pS_mean'] < dc, :].index.values
-    print(gene_diversity_table.loc[gt_idx, :])
 
     fig = plt.figure(figsize=(double_col_width, 0.8 * single_col_width))
     ax = fig.add_subplot(121)
@@ -1450,9 +1469,9 @@ def plot_genomic_trough_diversity(gene_diversity_table, syna_num_site_alleles, s
         syna_control_pdf = gene_diversity_table.loc[pdf_control_idx, 'A_pS_mean'] 
         y_pdf, _ = np.histogram(syna_control_pdf, bins=x_bins)
         y_pdf = np.concatenate([[y_pdf[0]], y_pdf])
-        ax.step(x_bins, n * y_pdf / n_control, lw=2.0, color='tab:orange')
+        ax.step(x_bins, n * y_pdf / n_control, lw=2.0, color='tab:orange', label=r'$\alpha$ backbone (boostrap)')
 
-    ax.legend(loc='upper left', frameon=False)
+    ax.legend(loc='upper right', frameon=False)
 
     print(syna_num_site_alleles.loc[syna_gt_idx, 'piS'].mean(), syna_num_site_alleles.loc[syna_control_idx, 'piS'].mean())
 
@@ -1484,12 +1503,14 @@ def plot_genomic_trough_diversity(gene_diversity_table, syna_num_site_alleles, s
     print(synbp_num_site_alleles.loc[synbp_gt_idx, 'piS'].mean(), synbp_num_site_alleles.loc[synbp_control_idx, 'piS'].mean())
 
     plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}Panel{fig_count}_genomic_trough_diversity{boostrap_ext}.pdf')
+    #plt.savefig(f'{args.figures_dir}Panel{panel_count}_genomic_trough_diversity{boostrap_ext}.pdf')
+    plt.savefig(f'{args.figures_dir}fig{fig_count}_genomic_trough_diversity{boostrap_ext}.pdf')
     plt.close()
-    fig_count += 1
+    panel_count += 1
 
 
 def plot_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alleles, syna_mean_diversity, synbp_num_site_alleles, synbp_mean_diversity, rng, args, x0=0, dx1=0.25, dx2=0.2):
+    global panel_count 
     global fig_count 
 
     species_cluster_genomes = pd.read_csv(f'{args.data_dir}labeled_sequence_cluster_genomes.tsv', sep='\t', index_col=0)
@@ -1616,12 +1637,14 @@ def plot_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alleles, s
     #ax.set_yticks([1E-5, 1E-4, 1E-3, 1E-2, 1E-1, 1])
 
     plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}Panel{fig_count}_hybrid_gene_diversity.pdf')
+    #plt.savefig(f'{args.figures_dir}Panel{panel_count}_hybrid_gene_diversity.pdf')
+    plt.savefig(f'{args.figures_dir}fig{fig_count}_hybrid_gene_diversity.pdf')
     plt.close()
-    fig_count += 1
+    panel_count += 1
 
 
 def plot_alpha_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alleles, synbp_num_site_alleles, syna_mean_diversity, rng, args, x0=1, dx1=0.25, dx2=0.2):
+    global panel_count 
     global fig_count 
 
     species_cluster_genomes = pd.read_csv(f'{args.data_dir}labeled_sequence_cluster_genomes.tsv', sep='\t', index_col=0)
@@ -1695,9 +1718,10 @@ def plot_alpha_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alle
     print('\n\n')
 
     plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}Panel{fig_count}_A_hybrid_gene_diversity.pdf')
+    #plt.savefig(f'{args.figures_dir}Panel{panel_count}_A_hybrid_gene_diversity.pdf')
+    plt.savefig(f'{args.figures_dir}fig{fig_count}_A_hybrid_gene_diversity.pdf')
     plt.close()
-    fig_count += 1
+    panel_count += 1
 
 
 ###########################################################
@@ -1705,93 +1729,17 @@ def plot_alpha_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alle
 ###########################################################
 def make_linkage_panels(pangenome_map, args, avg_length_fraction=0.75, ms=5, low_diversity_cutoff=0.05, ax_label_size=12, tick_size=12):
     global fig_count 
+    print(f'Plotting Fig. {fig_count}...\n')
 
     color_dict = {'A':'tab:orange', 'Bp':'tab:blue', 'Bp_subsampled':'gray', 'population':'k'}
     label_dict = {'A':r'$\alpha$', 'Bp':r'$\beta$', 'Bp_subsampled':r'$\beta$ (subsampled)', 'population':r'whole population'}
     cloud_dict = {'A':0.05, 'Bp':0.05, 'Bp_subsampled':0.05, 'population':0.1}
     marker_dict = {'A':'o', 'Bp':'s', 'Bp_subsampled':'x', 'population':'v'}
-
     rng = np.random.default_rng(args.random_seed)
     random_gene_linkage = calculate_random_gene_linkage(args, rng, cloud_dict)
-
     metadata = MetadataMap()
-
-    # Comparison to neutral model
-    fig = plt.figure(figsize=(double_col_width, 0.8 * single_col_width))
-    ax1 = fig.add_subplot(121)
-    set_up_linkage_curve_axis(ax1, ax_label='A', xlim=(0.8, 7E3), xticks=[1E0, 1E1, 1E2, 1E3], ylim=(5E-3, 1.5E0), ylabel='linkage disequilibrium', x_ax_label=1.5E-1)
-    ax2 = fig.add_subplot(122)
-    set_up_linkage_curve_axis(ax2, ax_label='B', xlim=(0.02, 3E2), xticks=[1E-1, 1E0, 1E1, 1E2], ylim=(1E-2, 1.5E0), xlabel=r'rescaled separation, $\rho x$', ylabel='linkage disequilibrium', x_ax_label=3E-3)
-    rho_fit = {'A':0.03, 'Bp':0.12}
-    theta = 0.03
-    lmax = 2000
-    x_theory = np.arange(1, lmax)
-
-    #ms = 5
-    for species in ['A', 'Bp']:
-        cloud_radius = cloud_dict[species]
-        linkage_results = pickle.load(open(f'{args.linkage_dir}sscs_core_ogs_cleaned_{species}_linkage_curves_c{cloud_radius}_all_sites.dat', 'rb'))
-        x_arr, sigmad2 = average_linkage_curves(linkage_results, metric='sigmad_sq', average_length_fraction=avg_length_fraction)
-        x_cg, sigmad2_cg = coarse_grain_distances(x_arr, sigmad2)
-        y0 = sigmad2_cg[1]
-        ax1.plot(x_cg[:-5], sigmad2_cg[:-5], f'-{marker_dict[species]}', ms=ms, mfc='none', mew=1.5, lw=0, alpha=1.0, c=color_dict[species], label=label_dict[species])
-
-        # Plot theory
-        rho = rho_fit[species]
-        y_theory = er2.sigma2_theory(rho * x_theory, theta)
-        ax1.plot(x_theory, (y0 / y_theory[0]) * y_theory, lw=1.5, ls='--', c=color_dict[species], label=f'fit ($\\rho={rho}$)')
-        ax2.plot(rho * x_cg[:-5], sigmad2_cg[:-5], f'-{marker_dict[species]}', ms=ms, mfc='none', mew=1.5, lw=1.0, alpha=1.0, c=color_dict[species], label=label_dict[species])
-
-    x_theory = np.geomspace(0.01, 200, 100)
-    y_theory = er2.sigma2_theory(x_theory, theta)
-    ax2.plot(x_theory, y_theory, lw=1.5, ls='-', c='k', label=f'neutral theory')
-
-    ax1.legend(fontsize=10, frameon=False, loc='lower left')
-    ax2.legend(fontsize=10, frameon=False, loc='lower left')
-    plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}Panel{fig_count}_linkage_collapse.pdf')
-    fig_count += 1
-
-    fig = plt.figure(figsize=(double_col_width, 0.8 * single_col_width))
-    ax = fig.add_subplot(121)
-    set_up_linkage_curve_axis(ax, xlim=(0.8, 2E4), ylim=(5E-3, 1.5E0), ax_label='', ax_label_fs=16, xticks=[1, 1E1, 1E2, 1E3], ylabel='linkage disequilibrium')
-    for species in ['A', 'Bp', 'population']:
-        if species != 'population':
-            cloud_radius = cloud_dict[species]
-            linkage_results = pickle.load(open(f'{args.linkage_dir}sscs_core_ogs_cleaned_{species}_linkage_curves_c{cloud_radius}_all_sites.dat', 'rb'))
-        else:
-            linkage_results = pickle.load(open(f'{args.linkage_dir}sscs_core_ogs_cleaned_{species}_linkage_curves_all_sites.dat', 'rb'))
-        x_arr, sigmad2 = average_linkage_curves(linkage_results, metric='sigmad_sq', average_length_fraction=avg_length_fraction)
-        x_cg, sigmad2_cg = coarse_grain_distances(x_arr, sigmad2)
-
-        ax.plot(x_cg[:-5], sigmad2_cg[:-5], f'-{marker_dict[species]}', ms=ms, mfc='none', lw=1, alpha=1.0, c=color_dict[species], label=label_dict[species]) # exclude last points with low depth
-        if species in random_gene_linkage:
-            gene_pair_linkage, og_arr = pickle.load(open(f'{args.linkage_dir}{species}_random_gene_linkage_c{cloud_radius}.dat', 'rb'))
-            linkage_avg = np.nanmean(gene_pair_linkage[:, 0, :], axis=0)
-            control_avg = np.nanmean(gene_pair_linkage[:, 1, :], axis=0)
-            ax.scatter(1.5E4, linkage_avg[0], s=20, fc='none', ec=color_dict[species], marker=marker_dict[species])
-            ax.scatter(1.5E4, control_avg[0], s=40, fc='none', ec=color_dict[species], marker='_', lw=2) # plot control
-
-    ax.axvline(1E4, ls='--', c='k')
-    ax.legend(fontsize=12, frameon=False)
-
-    ax = fig.add_subplot(122)
-    f_divergences = f'{args.data_dir}core_ogs_species_consensus_divergence_table.tsv'
-    consensus_divergence_table = pd.read_csv(f_divergences, sep='\t', index_col=0)
-    consensus_divergence_table['average'] = consensus_divergence_table.mean(axis=1)
-    rrna_aln = read_rrna_alignment(pangenome_map, args)
-    rrna_consensus_divergences = calculate_locus_consensus_divergence(rrna_aln, metadata)
-    rrna_sag_ids = np.array(rrna_consensus_divergences.index)
-
-    x = rrna_consensus_divergences.values
-    y = consensus_divergence_table.loc[rrna_sag_ids, 'average'].values
-    plot_consensus_divergence_loci_comparisons(ax, x, y, rrna_sag_ids, metadata, fig, ax_label='', label_size=ax_label_size, tick_size=tick_size)
-
-    plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}Panel{fig_count}_linkage_decay.pdf')
-    fig_count += 1
-
     plot_linkage_decay(random_gene_linkage, metadata, cloud_dict, label_dict, color_dict, marker_dict, args, avg_length_fraction=avg_length_fraction)
+    print_break()
 
 
 def calculate_random_gene_linkage(args, rng, cloud_dict, sites_ext='_all_sites', min_sample_size=20, min_coverage=0.9, sample_size=1000):
@@ -1887,7 +1835,10 @@ def coarse_grain_distances(x, y, num_cg_points=20):
         idx = i + 11
         jl = np.argmin(np.abs(x - np.floor(xi)))
         jr = np.argmin(np.abs(x - np.ceil(10**(np.log10(xi) + x_bin))))
-        y_cg[idx] = np.mean(y[jl:jr])
+        if jr > jl:
+            y_cg[idx] = np.mean(y[jl:jr])
+        else:
+            y_cg[idx] = np.nan
     x_cg = np.concatenate([np.arange(11), x_log])
     return x_cg, y_cg
 
@@ -1909,7 +1860,6 @@ def read_rrna_alignment(pangenome_map, args):
             filtered_rrna_gene_ids.append(gene_id)
         else:
             print(gene_id, sag_prefix_dict[gene_id])
-    print(f'{len(filtered_rrna_gene_ids)} out of {len(trimmed_aln)} in filtered SAGs.')
 
     # Rename seqs using SAG IDs
     for rec in trimmed_aln:
@@ -1919,7 +1869,7 @@ def read_rrna_alignment(pangenome_map, args):
 
 def calculate_locus_consensus_divergence(locus_aln, metadata):
     locus_sag_ids = [rec.id for rec in locus_aln]
-    locus_consensus_divergences = pd.Series(index=locus_sag_ids)
+    locus_consensus_divergences = pd.Series(index=locus_sag_ids, dtype=float)
     locus_species_sorted_sags = metadata.sort_sags(locus_sag_ids, by='species')
     for species in ['A', 'Bp']:
         species_sag_ids = locus_species_sorted_sags[species]
@@ -1956,7 +1906,9 @@ def plot_consensus_divergence_loci_comparisons(ax, locus1_divergences, locus2_di
         ax.annotate('$R=' + f'{r_close:.2f}$', xy_species_text, fontsize=14, color=colors[i])
 
         pearsonr = np.corrcoef(locus1_dc, locus2_dc)
-        print(species, pearsonr)
+        print(f'{species} 16S vs whole-genome divergence correlation:')
+        print(pearsonr)
+        print('\n')
 
     if xlim is None:
         xlim = (-0.0005, 1.1 * np.max(locus1_divergences))
@@ -2044,14 +1996,14 @@ def plot_linkage_decay(random_gene_linkage, metadata, cloud_dict, label_dict, co
     ax2.text(-0.002, 1.00 * ylim[1], 'B', fontweight='bold', fontsize=14, va='center')
 
     plt.tight_layout()
-    plt.savefig(f'{args.figures_dir}Fig{fig_count}_linkage_decay.pdf')
+    plt.savefig(f'{args.figures_dir}fig{fig_count}_linkage_decay.pdf')
     fig_count += 1
 
 
 if __name__ == '__main__':
     # Default variables
     alignment_dir = '../results/single-cell/reference_alignment/'
-    figures_dir = '../figures/main_text/v2/'
+    figures_dir = '../figures/main_text/v3/'
     pangenome_dir = '../results/single-cell/sscs_pangenome_v2/'
     results_dir = '../results/single-cell/'
     data_dir = '../results/single-cell/main_figures_data/'
@@ -2073,8 +2025,9 @@ if __name__ == '__main__':
     random_seed = 12345
     rng = np.random.default_rng(random_seed)
     pangenome_map = pg_utils.PangenomeMap(f_orthogroup_table=f_orthogroup_table)
-    #make_genome_level_figure(pangenome_map, args, rng, fig_number='1')
-    make_gene_level_figure(pangenome_map, args, rng, fig_number='2')
+    #make_genome_level_figure(pangenome_map, args, rng)
+    fig_count = 2
+    make_linkage_panels(pangenome_map, args)
+    make_genetic_diversity_panels(pangenome_map, args)
+    #make_gene_level_figure(pangenome_map, args, rng)
     #make_snp_level_panels(pangenome_map, args, rng, panel_label_fs=10)
-    #make_genetic_diversity_panels(pangenome_map, args)
-    #make_linkage_panels(pangenome_map, args)
