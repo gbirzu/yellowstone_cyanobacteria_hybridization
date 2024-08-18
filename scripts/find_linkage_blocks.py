@@ -51,6 +51,8 @@ def summarize_linkage_blocks(f_aln, og_id, sampled_sag_ids, pangenome_map, metad
     aln = read_main_cloud_alignment(f_aln, pangenome_map, metadata)
     species_gene_ids = pangenome_map.get_og_gene_ids(og_id, sag_ids=sampled_sag_ids)
     linkage_blocks, x_species_snps = find_linkage_blocks(aln, species_gene_ids, snp_frequency_cutoff=args.snp_frequency_cutoff, rsq_min=args.rsq_min, min_block_length=args.min_block_length)
+    print(linkage_blocks)
+    print(x_species_snps)
 
     # Construct haplotype block alignments
     aln_species = align_utils.get_subsample_alignment(aln, species_gene_ids)
@@ -95,9 +97,14 @@ def find_linkage_blocks(aln, subsample_gene_ids, snp_frequency_cutoff=3, rsq_min
 
     if len(aln_species) > 0:
         aln_species_hf_snps, x_species_snps = align_utils.get_high_frequency_snp_alignment(aln_species, snp_frequency_cutoff, counts_filter=True)
+        align_utils.write_alignment(aln_species_hf_snps, f'../results/tests/alignments/YSG_0941_snps.fna')
+
         rsq = ld.calculate_rsquared(aln_species_hf_snps)
         linkage_blocks = get_linkage_runs(rsq, rsq_min)
         long_blocks = [block for block in linkage_blocks if len(block) >= min_block_length]
+
+        for b in long_blocks:
+            print(rsq[b, :][:, b])
     else:
         long_blocks = []
         x_species_snps = []

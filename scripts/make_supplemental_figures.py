@@ -27,17 +27,23 @@ def make_og_diversity_figures(pangenome_map, args, fig_count, contig_length_cuto
     metadata = MetadataMap()
     merged_donor_frequency_table = read_merged_donor_frequency_table(pangenome_map, metadata, args)
     plot_hybridization_pie_chart(merged_donor_frequency_table, savefig=f'{args.figures_dir}S{fig_count}_hybridization_pie.pdf')
+    fig_count += 1
+
+    plot_species_og_abundances(pangenome_map, savefig=f'{args.figures_dir}S{fig_count}_og_cluster_abundance_distributions.pdf', verbose=args.verbose)
+
     return fig_count + 1
 
 
 def read_merged_donor_frequency_table(pangenome_map, metadata, args):
-    species_cluster_genomes = pd.read_csv(f'{args.results_dir}supplement/sscs_labeled_sequence_cluster_genomes.tsv', sep='\t', index_col=0)
+    #species_cluster_genomes = pd.read_csv(f'{args.results_dir}supplement/sscs_labeled_sequence_cluster_genomes.tsv', sep='\t', index_col=0)
+    species_cluster_genomes = pd.read_csv(f'{args.results_dir}main_figures_data/labeled_sequence_cluster_genomes.tsv', sep='\t', index_col=0)
 
     # Read donor frequncy tables
     species_donor_frequency_tables = {}
     temp = []
     for species in ['A', 'Bp']:
-        donor_frequency_table = main_figs.make_donor_frequency_table(species_cluster_genomes, species, pangenome_map, metadata)
+        #donor_frequency_table = main_figs.make_donor_frequency_table(species_cluster_genomes, species, pangenome_map, metadata)
+        donor_frequency_table = make_donor_frequency_table(species_cluster_genomes, species, pangenome_map, metadata)
         donor_frequency_table['fraction_mixed_clusters'] = donor_frequency_table['M'] / donor_frequency_table[['A', 'Bp', 'C', 'O', 'M']].sum(axis=1)
         species_donor_frequency_tables[species] = donor_frequency_table
         temp.append(set(donor_frequency_table.index.values))
@@ -54,6 +60,29 @@ def read_merged_donor_frequency_table(pangenome_map, metadata, args):
 
     return merged_donor_frequency_table
 
+def make_donor_frequency_table(species_cluster_genomes, species, pangenome_map, metadata):
+    if species == 'A':
+        species_core_genome_clusters = species_cluster_genomes.loc[species_cluster_genomes['core_A'] == 'Yes', :].sort_values('osa_location')
+    elif species == 'Bp':
+        species_core_genome_clusters = species_cluster_genomes.loc[species_cluster_genomes['core_Bp'] == 'Yes', :].sort_values('osa_location')
+
+    # Initialize frequency table
+    sag_ids = pangenome_map.get_sag_ids()
+    species_sorted_sags = metadata.sort_sags(sag_ids, by='species')
+    donor_freq_table = pd.DataFrame(index=species_core_genome_clusters.index, columns=['CYA_tag', 'CYB_tag', 'osa_location', 'osbp_location', 'A', 'Bp', 'C', 'O'])
+    donor_freq_table[['CYA_tag', 'CYB_tag', 'osa_location', 'osbp_location']] = species_core_genome_clusters[['CYA_tag', 'CYB_tag', 'osa_location', 'osbp_location']].values
+    donor_freq_table[['A', 'Bp', 'C', 'O']] = 0
+
+    #Fill table
+    for o in donor_freq_table.index:
+        gene_cluster_str = species_core_genome_clusters.loc[o, species_sorted_sags[species]].dropna().replace({'a':'A', 'b':'Bp'})
+        gene_clusters = [utils.split_alphanumeric_string(c)[0] for c in np.concatenate(gene_cluster_str.str.split(','))]
+        unique_clusters, cluster_counts = utils.sorted_unique(gene_clusters)
+        donor_freq_table.loc[o, unique_clusters] = cluster_counts
+
+    return donor_freq_table
+
+
 def plot_hybridization_pie_chart(merged_donor_frequency_table, savefig=None):
 
     # Calculate bin numbers
@@ -61,14 +90,14 @@ def plot_hybridization_pie_chart(merged_donor_frequency_table, savefig=None):
     merged_donor_frequency_table['fraction mosaic'] = merged_donor_frequency_table['mosaic hybrid'] / merged_donor_frequency_table[['non-hybrid', 'A simple hybrid', 'Bp simple hybrid', 'mosaic hybrid']].sum(axis=1)
     mosaic_og_ids = merged_donor_frequency_table.loc[merged_donor_frequency_table['mosaic hybrid'] > 0, :].index.values
     nonmosaic_og_ids = merged_donor_frequency_table.loc[merged_donor_frequency_table['mosaic hybrid'] < 1, :].index.values
-    singleton_hybrid_og_ids = merged_donor_frequency_table.loc[merged_donor_frequency_table[['A simple hybrid', 'Bp simple hybrid']].sum(axis=1) == 1, :].index.values
+    singleton_hybrid_og_ids = merged_donor_frequency_table.loc[merged_donor_frequency_table[['A simple hybrid', 'Bp simple hybrid']].sum(axis=1) == 1, :].index.values 
     singleton_hybrid_og_ids = singleton_hybrid_og_ids[np.isin(singleton_hybrid_og_ids, nonmosaic_og_ids)]
     nonsingleton_hybrid_og_ids = merged_donor_frequency_table.loc[merged_donor_frequency_table[['A simple hybrid', 'Bp simple hybrid']].sum(axis=1) > 1, :].index.values
     nonsingleton_hybrid_og_ids = nonsingleton_hybrid_og_ids[np.isin(nonsingleton_hybrid_og_ids, nonmosaic_og_ids)]
 
     bins = [len(nonhybrid_og_ids), len(mosaic_og_ids), len(singleton_hybrid_og_ids), len(nonsingleton_hybrid_og_ids)]
     #bin_labels = ['no hybrids', 'mixed\nclusters', 'singleton\nhybrids', 'non-singleton\nhybrids']
-    bin_labels = [f'no hybrids ({bins[0]})', f'mosaic hybrids\nand other\nmixed clusters({bins[1]})', f'singleton\nhybrids\n({bins[2]})', f'non-singleton\nhybrids ({bins[3]})']
+    bin_labels = [f'no gene\nhybrids ({bins[0]})', f'mosaic hybrids\nand other\nmixed clusters({bins[1]})', f'singleton\nhybrids\n({bins[2]})', f'non-singleton\nhybrids ({bins[3]})']
     #bin_labels = [f'no hybrids', f'mixed-species', f'singleton hybrids', f'non-singleton hybrids']
 
     #text_props = {'weight':'bold', 'size':12}
@@ -89,6 +118,44 @@ def plot_hybridization_pie_chart(merged_donor_frequency_table, savefig=None):
         plt.savefig(savefig)
         plt.close()
 
+
+def plot_species_og_abundances(pangenome_map, savefig, verbose=False):
+    og_table = pangenome_map.og_table
+
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel('orthogroup abundance', fontsize=14)
+    ax.set_ylabel('orthogroups', fontsize=14)
+    ax.set_yscale('log')
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+    x_bins = np.arange(og_table['num_seqs'].max() + 2)
+
+    y_min = 1E-3
+    color_dict = {'A':'tab:orange', 'Bp':'tab:blue', 'C':'tab:green'}
+    label_dict = {'A':r'$\alpha$', 'Bp':r'$\beta$', 'C':r'$\gamma$'}
+    #k_max_dict = {'A':37, 'Bp':74} # manual fit to mode of distribution
+    #species_core_ogs = {}
+    for species in ['A', 'Bp', 'C']:
+        n = og_table.loc[og_table['sequence_cluster'] == species, 'num_seqs'].values
+        #ax.hist(n, bins=x_bins, histtype='step', lw=2.5, label=label_dict[species], alpha=1.0, color=color_dict[species])
+        ax.hist(n, bins=x_bins, histtype='step', lw=1.5, label=label_dict[species], alpha=1.0, color=color_dict[species])
+
+        if verbose:
+            print(f'{len(n)} {species} clusters')
+            if species == 'C':
+                n_values, hist = utils.sorted_unique(n, sort_by='tag', sort='ascending')
+                print(f'{species} cluster sizes:')
+                print(n_values)
+                print(hist)
+                print(np.cumsum(hist))
+            print('\n')
+
+    ax.legend(fontsize=14, frameon=False)
+    plt.tight_layout()
+    plt.savefig(savefig)
+    plt.close()
 
 
 ###########################################################
@@ -920,12 +987,13 @@ def coarse_grain_distances(x, y, num_cg_points=20):
 if __name__ == '__main__':
     # Default variables
     figures_dir = '../figures/supplement/'
-    pangenome_dir = '../results/single-cell/sscs_pangenome/'
+    pangenome_dir = '../results/single-cell/sscs_pangenome_v2/'
     results_dir = '../results/single-cell/'
     output_dir = '../results/single-cell/supplement/'
     metagenome_dir = '../data/metagenome/recruitment_v4/'
     annotations_dir = '../data/single-cell/filtered_annotations/sscs/'
-    f_orthogroup_table = f'{pangenome_dir}filtered_orthogroups/sscs_annotated_single_copy_orthogroup_presence.tsv'
+    #f_orthogroup_table = f'{pangenome_dir}filtered_orthogroups/sscs_annotated_single_copy_orthogroup_presence.tsv'
+    f_orthogroup_table = f'{pangenome_dir}filtered_low_copy_clustered_core_mapped_labeled_cleaned_orthogroup_table.tsv'
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-F', '--figures_dir', default=figures_dir, help='Directory where figures are saved.')
@@ -936,10 +1004,11 @@ if __name__ == '__main__':
     parser.add_argument('-O', '--output_dir', default=output_dir, help='Directory in which supplemental data is saved.')
     parser.add_argument('-g', '--orthogroup_table', default=f_orthogroup_table, help='File with orthogroup table.')
     parser.add_argument('-r', '--random_seed', default=12345, type=int, help='Seed for RNG.')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Run in verbose mode.')
     args = parser.parse_args()
 
 
     pangenome_map = pg_utils.PangenomeMap(f_orthogroup_table=args.orthogroup_table)
-    make_og_diversity_figures(pangenome_map, args, 8)
-    fig_count = make_genetic_diversity_figures(pangenome_map, args, 22)
-    fig_count = make_revised_linkage_figures(pangenome_map, args, fig_count)
+    make_og_diversity_figures(pangenome_map, args, 1)
+    #fig_count = make_genetic_diversity_figures(pangenome_map, args, 22)
+    #fig_count = make_revised_linkage_figures(pangenome_map, args, fig_count)

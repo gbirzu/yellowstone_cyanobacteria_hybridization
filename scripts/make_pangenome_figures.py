@@ -89,6 +89,7 @@ def plot_pdist_distributions(og_table, args):
 def plot_species_clusters_distribution(clustered_og_table, args):
     parent_ids, parent_counts = utils.sorted_unique(clustered_og_table['parent_og_id'].values)
 
+
     # Plot OG species clusters
     x, y = utils.sorted_unique(parent_counts, sort='ascending')
     fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
@@ -101,6 +102,14 @@ def plot_species_clusters_distribution(clustered_og_table, args):
     plt.tight_layout()
     plt.savefig(f'{args.figures_dir}{args.fhead}species_clusters_distribution.pdf')
     plt.close()
+
+    if args.verbose:
+        print('Species cluster distribution:')
+        counts, hist = utils.sorted_unique(parent_counts, sort='ascending', sort_by='tag')
+        print(f'Counts: {counts}')
+        print(f'Number of clusters: {hist}; total: {np.sum(hist)}')
+        print(f'Fraction of clusters: {hist / np.sum(hist)}')
+        print('\n')
 
 
 def read_processed_og_tables():
@@ -182,6 +191,7 @@ def plot_mixed_species_frequency_distribution(core_og_table, args, rng):
 
     if args.verbose:
         print('Mixed-species cluster assignment p-value: ', np.sum(null_arr > f_cutoff) / len(null_arr))
+        print('\n')
 
 
 def plot_beta_distribution(core_og_table, args, rng):
@@ -209,9 +219,9 @@ def plot_beta_distribution(core_og_table, args, rng):
 
 
     if args.verbose:
-        print(f_beta, f_beta_avg)
-        print(np.sum(parent_counts == 1), np.sum(parent_counts > 1))
+        print('Single-cluster orthogroup table:')
         print(core_og_table.loc[single_cluster_idx, :])
+        print('\n')
 
 
 
@@ -249,11 +259,6 @@ if __name__ == '__main__':
         n_series = core_og_table[s_ids].notna().sum(axis=1)
         core_og_table.insert(7, f'{s}_sag_abundance', n_series)
     core_og_table = sort_species_clusters(core_og_table)
-
-    if args.verbose:
-        print(og_table.iloc[:, :10])
-        print(core_og_table.iloc[:, :10])
-        print('\n\n')
 
     plot_species_fraction_distributions(core_og_table, args)
     plot_mixed_species_frequency_distribution(core_og_table, args, rng)

@@ -702,18 +702,32 @@ def get_high_frequency_snp_alignment(aln, freq_threshold, counts_filter=False):
     return aln_snps, x_snps
 
 def remove_low_frequency_snps(aln, f_threshold, return_x=False):
-    snp_frequencies = calculate_snp_frequencies(aln, filter_nans=False)
+    num_site_alleles = count_site_alleles(aln)
+    x_biallelic = np.arange(aln.get_alignment_length())[num_site_alleles == 2]
+    aln_biallelic = get_alignment_sites(aln, x_biallelic)
+
+    #snp_frequencies = calculate_snp_frequencies(aln, filter_nans=False)
+    snp_frequencies = calculate_snp_frequencies(aln_biallelic, filter_nans=False)
     filtered_list = []
-    for record in aln:
+    #for record in aln:
+    for record in aln_biallelic:
         filtered_seq = Seq(''.join(np.array(record.seq)[snp_frequencies > f_threshold]))
         filtered_list.append(SeqRecord(filtered_seq, id=record.id, name=record.name, description=record.description))
     filtered_aln = MultipleSeqAlignment(filtered_list)
     if return_x:
-        x = np.arange(len(aln[0]))
-        return filtered_aln, x[snp_frequencies > f_threshold]
+        #x = np.arange(len(aln[0]))
+        #return filtered_aln, x[snp_frequencies > f_threshold]
+        return filtered_aln, x_biallelic[snp_frequencies > f_threshold]
     else:
         return filtered_aln
 
+def count_site_alleles(aln, excluded_alleles=['-', 'N']):
+    aln_arr = np.array(aln)
+    num_alleles = []
+    for s in range(aln_arr.shape[1]):
+        unique_alleles = np.unique(aln_arr[~np.isin(aln_arr[:, s], excluded_alleles), s])
+        num_alleles.append(len(unique_alleles))
+    return np.array(num_alleles)
 
 def read_and_process_alignment(f_aln, sites='all'):
     aln_raw = seq_utils.read_alignment(f_aln)
