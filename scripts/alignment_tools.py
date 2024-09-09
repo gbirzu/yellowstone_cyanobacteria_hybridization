@@ -704,20 +704,21 @@ def get_high_frequency_snp_alignment(aln, freq_threshold, counts_filter=False):
 def remove_low_frequency_snps(aln, f_threshold, return_x=False):
     num_site_alleles = count_site_alleles(aln)
     x_biallelic = np.arange(aln.get_alignment_length())[num_site_alleles == 2]
-    aln_biallelic = get_alignment_sites(aln, x_biallelic)
-
-    #snp_frequencies = calculate_snp_frequencies(aln, filter_nans=False)
-    snp_frequencies = calculate_snp_frequencies(aln_biallelic, filter_nans=False)
     filtered_list = []
-    #for record in aln:
-    for record in aln_biallelic:
-        filtered_seq = Seq(''.join(np.array(record.seq)[snp_frequencies > f_threshold]))
-        filtered_list.append(SeqRecord(filtered_seq, id=record.id, name=record.name, description=record.description))
+
+    if len(x_biallelic) > 1:
+        aln_biallelic = get_alignment_sites(aln, x_biallelic)
+        snp_frequencies = calculate_snp_frequencies(aln_biallelic, filter_nans=False)
+        for record in aln_biallelic:
+            filtered_seq = Seq(''.join(np.array(record.seq)[snp_frequencies > f_threshold]))
+            filtered_list.append(SeqRecord(filtered_seq, id=record.id, name=record.name, description=record.description))
+        x_snps = x_biallelic[snp_frequencies > f_threshold]
+    else:
+        x_snps = None
+
     filtered_aln = MultipleSeqAlignment(filtered_list)
     if return_x:
-        #x = np.arange(len(aln[0]))
-        #return filtered_aln, x[snp_frequencies > f_threshold]
-        return filtered_aln, x_biallelic[snp_frequencies > f_threshold]
+        return filtered_aln, x_snps
     else:
         return filtered_aln
 
@@ -1631,10 +1632,18 @@ def test_pairwise_distances(og_id='CYB_1073', species='Bp', f_orthogroup_table='
     Z = hclust.linkage(pdist, method='average', optimal_ordering=True)
 
 
+def test_main_cloud_alignment():
+    metadata = MetadataMap()
+    pangenome_map = pg_utils.PangenomeMap(f_orthogroup_table='../results/single-cell/sscs_pangenome_v2/filtered_low_copy_clustered_core_mapped_labeled_cleaned_orthogroup_table.tsv')
+    aln_mc = read_main_cloud_alignment('../results/single-cell/alignments/v2/core_ogs_cleaned/YSG_0088a_cleaned_aln.fna', pangenome_map, metadata)
+    write_alignment(aln_mc, '../results/tests/alignments/YSG_0088a_main_cloud_aln.fna')
+
+
 if __name__ == '__main__':
     #test_sequence_table()
     #test_linkage_metrics()
     #test_alignment_processing()
     #test_diversity_statistics()
-    test_pairwise_distances()
+    #test_pairwise_distances()
+    test_main_cloud_alignment()
 

@@ -29,7 +29,9 @@ def make_og_diversity_figures(pangenome_map, args, fig_count, contig_length_cuto
     plot_hybridization_pie_chart(merged_donor_frequency_table, savefig=f'{args.figures_dir}S{fig_count}_hybridization_pie.pdf')
     fig_count += 1
 
-    plot_species_og_abundances(pangenome_map, savefig=f'{args.figures_dir}S{fig_count}_og_cluster_abundance_distributions.pdf', verbose=args.verbose)
+    plot_species_og_abundances(pangenome_map, savefig=f'{args.figures_dir}S{fig_count}_og_cluster_abundance_hist.pdf', verbose=args.verbose)
+    fig_count += 1
+    plot_species_og_abundances(pangenome_map, yscale='linear', savefig=f'{args.figures_dir}S{fig_count}_og_cluster_abundance_cuml.pdf', verbose=args.verbose, cumulative=True, density=True)
 
     return fig_count + 1
 
@@ -119,14 +121,14 @@ def plot_hybridization_pie_chart(merged_donor_frequency_table, savefig=None):
         plt.close()
 
 
-def plot_species_og_abundances(pangenome_map, savefig, verbose=False):
+def plot_species_og_abundances(pangenome_map, savefig, yscale='log', verbose=False, **hist_kwargs):
     og_table = pangenome_map.og_table
 
     fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
     ax = fig.add_subplot(111)
     ax.set_xlabel('orthogroup abundance', fontsize=14)
     ax.set_ylabel('orthogroups', fontsize=14)
-    ax.set_yscale('log')
+    ax.set_yscale(yscale)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
 
@@ -140,7 +142,7 @@ def plot_species_og_abundances(pangenome_map, savefig, verbose=False):
     for species in ['A', 'Bp', 'C']:
         n = og_table.loc[og_table['sequence_cluster'] == species, 'num_seqs'].values
         #ax.hist(n, bins=x_bins, histtype='step', lw=2.5, label=label_dict[species], alpha=1.0, color=color_dict[species])
-        ax.hist(n, bins=x_bins, histtype='step', lw=1.5, label=label_dict[species], alpha=1.0, color=color_dict[species])
+        ax.hist(n, bins=x_bins, histtype='step', lw=1.5, label=label_dict[species], alpha=1.0, color=color_dict[species], **hist_kwargs)
 
         if verbose:
             print(f'{len(n)} {species} clusters')
@@ -222,6 +224,8 @@ def make_genetic_diversity_figures(pangenome_map, args, fig_count, low_diversity
     fig_count = plot_alpha_spring_low_diversity(pangenome_map, metadata, low_diversity_ogs, rng, args, fig_count, num_bins=30, legend_fs=8)
 
     fig_count = plot_diversity_along_genome(pangenome_map, args, fig_count)
+
+    fig_count = plot_pairwise_divergences(pangenome_map, metadata, args, fig_count)
 
     return fig_count
 
@@ -817,6 +821,59 @@ def plot_species_diversity_along_genome(ax, species_cluster_genomes, pangenome_m
     y_smooth = np.array([np.mean(species_divergence_table['species_diversity'].values[j:j + w]) for j in range(0, len(species_divergence_table) - w, dx)])
     x_smooth = np.array([np.mean(species_divergence_table['genome_position'].values[j:j + w]) for j in range(0, len(species_divergence_table) - w, dx)])
     ax.plot(x_smooth, y_smooth, c=mean_color, lw=1.5)
+
+
+def plot_pairwise_divergences(pangenome_map, metadata, args, fig_count):
+    og_table = pangenome_map.og_table
+    color_dict = {'A':'tab:orange', 'Bp':'tab:blue', 'C':'tab:green'}
+    label_dict = {'A':r'$\alpha$', 'Bp':r'$\beta$', 'C':r'$\gamma$'}
+
+    pdist_values = {'A':[], 'Bp':[]}
+    for og_id in og_table['parent_og_id'].unique():
+        f_aln = f'{args.results_dir}alignments/v2/core_ogs_cleaned/{og_id}_cleaned_aln.fna'
+        aln = seq_utils.read_alignment(f_aln)
+        species_grouping = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
+        pdist = pickle.load(open(f'{args.pangenome_dir}pdist/{og_id}_cleaned_pS.dat', 'rb'))
+        print(og_id)
+        for species in ['A', 'Bp']:
+            if species in species_grouping:
+                species_idx = species_grouping[species]
+                pdist_values[species].append(utils.get_matrix_triangle_values(pdist.loc[species_idx, species_idx].values, k=1))
+
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel(r'synonymous divergence, $d_S$')
+    ax.set_ylabel('histogram')
+    ax.set_yscale('log')
+
+    for species in ['A', 'Bp']:
+        d_values = np.concatenate(pdist_values[species])
+        ax.hist(d_values, bins=100, lw=1.5, histtype='step', color=color_dict[species], label=label_dict[species])
+    ax.legend(fontsize=14, frameon=False)
+
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}S{fig_count}_pdist_histogram.pdf')
+    plt.close()
+    fig_count += 1
+
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel(r'synonymous divergence, $d_S$')
+    ax.set_ylabel('cumulative')
+
+    for species in ['A', 'Bp']:
+        d_values = np.concatenate(pdist_values[species])
+        ax.hist(d_values, bins=100, lw=1.5, histtype='step', density=True, cumulative=True, color=color_dict[species], label=label_dict[species])
+        print(species, len(d_values), np.sum(d_values > 0.01), np.sum(d_values > 0.1))
+    ax.axhline(0.99, lw=1.0, ls='--', color='k')
+    ax.axhline(0.9, lw=1.0, ls='--', color='k')
+    ax.legend(fontsize=14, frameon=False)
+
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}S{fig_count}_pdist_cumulative.pdf')
+    plt.close()
+
+    return fig_count + 1
 
 
 

@@ -48,11 +48,9 @@ def get_linkage_blocks(aln, x_snps=None, rsq_threshold=0.6, seed_size_threshold=
 
 
 def summarize_linkage_blocks(f_aln, og_id, sampled_sag_ids, pangenome_map, metadata, args, out_sample_sag_ids=None, consensus_id_head='consensus'):
-    aln = read_main_cloud_alignment(f_aln, pangenome_map, metadata)
+    aln = align_utils.read_main_cloud_alignment(f_aln, pangenome_map, metadata, dc_dict={'A':args.main_cloud_cutoff, 'Bp':args.main_cloud_cutoff, 'C':0.})
     species_gene_ids = pangenome_map.get_og_gene_ids(og_id, sag_ids=sampled_sag_ids)
     linkage_blocks, x_species_snps = find_linkage_blocks(aln, species_gene_ids, snp_frequency_cutoff=args.snp_frequency_cutoff, rsq_min=args.rsq_min, min_block_length=args.min_block_length)
-    print(linkage_blocks)
-    print(x_species_snps)
 
     # Construct haplotype block alignments
     aln_species = align_utils.get_subsample_alignment(aln, species_gene_ids)
@@ -78,6 +76,7 @@ def summarize_linkage_blocks(f_aln, og_id, sampled_sag_ids, pangenome_map, metad
     return block_stats, haplotype_clustered_genomes
 
 
+'''
 def read_main_cloud_alignment(f_aln, pangenome_map, metadata, dc_dict={'A':0.15, 'Bp':0.5, 'C':0.}):
     aln = seq_utils.read_alignment(f_aln)
     species_sorted_gene_ids = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
@@ -90,21 +89,20 @@ def read_main_cloud_alignment(f_aln, pangenome_map, metadata, dc_dict={'A':0.15,
             filtered_seq_ids = seq_ids[d_consensus <= dc_dict[species]]
             species_main_cloud_alns.append(align_utils.get_subsample_alignment(aln_species, filtered_seq_ids))
     return align_utils.stack_alignments(species_main_cloud_alns)
-
+'''
 
 def find_linkage_blocks(aln, subsample_gene_ids, snp_frequency_cutoff=3, rsq_min=1., min_block_length=0):
     aln_species = align_utils.get_subsample_alignment(aln, subsample_gene_ids)
 
     if len(aln_species) > 0:
         aln_species_hf_snps, x_species_snps = align_utils.get_high_frequency_snp_alignment(aln_species, snp_frequency_cutoff, counts_filter=True)
-        align_utils.write_alignment(aln_species_hf_snps, f'../results/tests/alignments/YSG_0941_snps.fna')
-
-        rsq = ld.calculate_rsquared(aln_species_hf_snps)
-        linkage_blocks = get_linkage_runs(rsq, rsq_min)
-        long_blocks = [block for block in linkage_blocks if len(block) >= min_block_length]
-
-        for b in long_blocks:
-            print(rsq[b, :][:, b])
+        if len(aln_species_hf_snps) > 1:
+            rsq = ld.calculate_rsquared(aln_species_hf_snps)
+            linkage_blocks = get_linkage_runs(rsq, rsq_min)
+            long_blocks = [block for block in linkage_blocks if len(block) >= min_block_length]
+        else:
+            long_blocks = []
+            x_species_snps = []
     else:
         long_blocks = []
         x_species_snps = []
@@ -330,7 +328,7 @@ def read_og_id_from_fname(f_aln):
 
 #def calculate_linkage_runs(f_aln, pangenome_map, metadata, snp_frequency_cutoff, rsq_min, min_block_length):
 def calculate_linkage_runs(f_aln, pangenome_map, metadata, args):
-    aln = read_main_cloud_alignment(f_aln, pangenome_map, metadata)
+    aln = align_utils.read_main_cloud_alignment(f_aln, pangenome_map, metadata, dc_dict={'A':args.main_cloud_cutoff, 'Bp':args.main_cloud_cutoff, 'C':0.})
     species_sorted_gene_ids = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
 
     if args.species in species_sorted_gene_ids:
@@ -397,6 +395,7 @@ if __name__ == '__main__':
     parser.add_argument('--species', default='A', help='Species in which to look for blocks.')
     parser.add_argument('--og_id', help='OG ID of input alignment.')
     parser.add_argument('--match_cutoff', type=int, default=1, help='Max number of SNPs away for block matches.')
+    parser.add_argument('--main_cloud_cutoff', type=float, default=0.05, help='Divergence cutoff from consensus for species main cloud definition.')
     parser.add_argument('--get_linkage_run_lengths', action='store_true', help='Calculate concordant run lengths for all alignments.')
     parser.add_argument('--test_all', action='store_true', help='Run tests.')
     args = parser.parse_args()
