@@ -586,6 +586,98 @@ def count_gene_hybrids(species_cluster_genomes, species_sorted_sags, host_specie
     return hybridization_counts_df
 
 
+def make_pairwise_divergence_tables(pangenome_map, metadata, args):
+    pdist_dir = f'{args.pangenome_dir}pdist/'
+    core_og_table = pangenome_map.og_table
+    core_og_ids = core_og_table['parent_og_id'].unique()
+    sag_ids = pangenome_map.get_sag_ids()
+    species_sorted_sags = metadata.sort_sags(sag_ids, by='species')
+    sorted_sag_ids = np.concatenate([species_sorted_sags[s] for s in ['A', 'Bp', 'C']])
+    
+    d_arr = initialize_pdist_array(core_og_ids, sorted_sag_ids)
+    pS_arr = initialize_pdist_array(core_og_ids, sorted_sag_ids)
+    pN_arr = initialize_pdist_array(core_og_ids, sorted_sag_ids)
+    d_idx = np.arange(len(sorted_sag_ids))
+
+    for i, g in enumerate(core_og_ids):
+        f_pdist = f'{pdist_dir}{g}_trimmed_pdist.dat'
+        if os.path.exists(f_pdist):
+            pdist = read_pdist_df(f_pdist)
+
+            # Filter SAGs with more than one gene copy
+            pdist_filtered = filter_pdist_df(pdist, pangenome_map)
+
+            # Copy values
+            copy_pdist_values(pdist_filtered, d_arr, i, sorted_sag_ids, d_idx)
+
+        f_pS = f'{pdist_dir}{g}_cleaned_pS.dat'
+        if os.path.exists(f_pS):
+            pS = read_pdist_df(f_pS)
+            pS_filtered = filter_pdist_df(pS, pangenome_map)
+            copy_pdist_values(pS_filtered, pS_arr, i, sorted_sag_ids, d_idx)
+
+        f_pN = f'{pdist_dir}{g}_cleaned_pN.dat'
+        if os.path.exists(f_pN):
+            pN = read_pdist_df(f_pN)
+            pN_filtered = filter_pdist_df(pN, pangenome_map)
+            copy_pdist_values(pN_filtered, pN_arr, i, sorted_sag_ids, d_idx)
+
+        if args.verbose:
+            print(g)
+            print(d_arr[i])
+            print(pS_arr[i])
+            print(pN_arr[i])
+            print('\n\n')
+
+    pickle.dump((d_arr, core_og_ids, sorted_sag_ids), open(f'{args.output_dir}pdist_array.dat', 'wb'))
+    pickle.dump((pS_arr, core_og_ids, sorted_sag_ids), open(f'{args.output_dir}pS_array.dat', 'wb'))
+    pickle.dump((pN_arr, core_og_ids, sorted_sag_ids), open(f'{args.output_dir}pN_array.dat', 'wb'))
+
+    d, x, y = pickle.load(open(f'{args.output_dir}pdist_matrix.dat', 'rb'))
+    print('Saved array:')
+    print(d, d.shape)
+    print(x, len(x))
+    print(y, len(y))
+    print('\n\n')
+
+
+def read_pdist_df(f_name):
+    pdist = pickle.load(open(f_name, 'rb'))
+    return pdist.fillna(0)
+
+def initialize_pdist_array(core_og_ids, sorted_sag_ids):
+    L = len(core_og_ids)
+    n = len(sorted_sag_ids)
+    d_arr = np.zeros((L, n, n))
+    d_arr[:, :, :] = np.nan
+    return d_arr
+
+def filter_pdist_df(pdist, pangenome_map):
+    g_sag_ids = np.array([pangenome_map.get_gene_sag_id(s) for s in pdist.index])
+    g_idx = np.arange(pdist.shape[0])
+
+    # Filter any SAGs with more than one gene copy
+    s_unique, s_counts = utils.sorted_unique(g_sag_ids)
+    filtered_idx = pdist.index.values[np.isin(g_sag_ids, s_unique[s_counts <= 1])]
+    g_idx = g_idx[np.isin(g_sag_ids, s_unique[s_counts <= 1])]
+    pdist_filtered = pdist.loc[filtered_idx, filtered_idx]
+
+    sag_idx = g_sag_ids[np.isin(g_sag_ids, s_unique[s_counts <= 1])] 
+    pdist_filtered.columns = sag_idx
+    pdist_filtered.index = sag_idx
+    return pdist_filtered
+
+def copy_pdist_values(pdist_filtered, d_arr, i, sorted_sag_ids, d_idx):
+    g_idx = d_idx[np.isin(sorted_sag_ids, pdist_filtered.index.values)]
+    sag_idx = sorted_sag_ids[g_idx]
+    pdist_filtered = pdist_filtered.loc[sag_idx, sag_idx]
+    
+    n = len(sorted_sag_ids)
+    idx_1d = np.arange(n)[:, None] * n + np.arange(n)[None, :]
+    g_idx_1d = idx_1d[g_idx, :][:, g_idx].flatten()
+
+    d_arr[i].flat[g_idx_1d] = pdist_filtered.values.flatten()
+
 
 if __name__ == '__main__':
     # Default variables
@@ -613,9 +705,10 @@ if __name__ == '__main__':
 
     pangenome_map = pg_utils.PangenomeMap(f_orthogroup_table=args.orthogroup_table)
     metadata = MetadataMap()
-    make_gene_tables(pangenome_map, args)
+    #make_gene_tables(pangenome_map, args)
     #make_single_site_tables(pangenome_map, metadata, '../results/single-cell/alignments/v2/core_ogs_cleaned/', args, sites='4D')
     #make_single_site_tables(pangenome_map, metadata, '../results/single-cell/alignments/v2/core_ogs_cleaned/', args, sites='all_sites')
     #make_hybridization_tables(pangenome_map, metadata, args)
+    make_pairwise_divergence_tables(pangenome_map, metadata, args)
 
 

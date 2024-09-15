@@ -268,314 +268,6 @@ def plot_species_frequency_across_samples(ax, sample_relative_abundances, fig, l
 
 
 ###########################################################
-# Fig. 2 panels: Gene-level analysis
-###########################################################
-
-def make_gene_level_figure(pangenome_map, args, rng):
-    global fig_count
-    print(f'Plotting Fig. {fig_count} panels...\n')
-
-    hybridization_dir = f'{args.results_dir}hybridization/'
-    species_cluster_genomes = pd.read_csv(f'{hybridization_dir}labeled_sequence_cluster_genomes.tsv', sep='\t', index_col=0)
-    metadata = MetadataMap()
-
-    syna_hybrid_donor_frequency_table, synbp_hybrid_donor_frequency_table = get_species_hybridization_tables(args)
-
-    for species in ['C', 'O']:
-        print(f'High-frequency {species} hybrids (n>10):')
-        print(syna_hybrid_donor_frequency_table.loc[syna_hybrid_donor_frequency_table[species] > 10, :])
-        print(synbp_hybrid_donor_frequency_table.loc[synbp_hybrid_donor_frequency_table[species] > 10, :])
-        print('\n')
-
-    ncols = 2
-    nrows = 3
-    ratio = 4
-    ratio2 = 1.5
-    fig = plt.figure(figsize=(double_col_width, 1.0 * single_col_width))
-    gspec = gridspec.GridSpec(figure=fig,
-            ncols=ncols, nrows=nrows, 
-            height_ratios=[ratio, ratio, ratio2], hspace=0.4,
-            top=0.95, bottom=0.15)
-
-    # label physical distance to the left and up:
-    trans = mtransforms.ScaledTranslation(-20/72, 7/72, fig.dpi_scale_trans)
-    
-
-    inner_grid = gspec[:2, :].subgridspec(ncols=2, nrows=2, wspace=0, width_ratios=[1, 69], hspace=0.65)
-    axs_merged = plt.subplot(inner_grid[:, 0])
-    for side in ['left', 'top', 'right', 'bottom']:
-        axs_merged.spines[side].set_color('none')
-    axs_merged.set_xticks([])
-    axs_merged.set_yticks([])
-    axs_merged.set_ylabel(r'Hybrid gene frequency', fontsize=14, labelpad=18)
-
-    ax = plt.subplot(inner_grid[0, 1])
-    ax.text(0.0, 0.95, 'A', transform=ax.transAxes + trans, fontsize=10, fontweight='bold', va='center', usetex=False)
-    plot_hybrid_gene_frequencies(ax, syna_hybrid_donor_frequency_table, 'A', xlabel='OS-A genome position (Mb)', lw=0.75, ms=5, ylabel='', legend_loc='upper right', legend_size=8, tick_size=10)
-    ax = plt.subplot(inner_grid[1, 1])
-    ax.text(0.0, 0.95, 'B', transform=ax.transAxes + trans, fontsize=10, fontweight='bold', va='center', usetex=False)
-    plot_hybrid_gene_frequencies(ax, synbp_hybrid_donor_frequency_table, 'Bp', xlabel="", lw=0.75, ms=5, ylabel='', legend_loc='upper right', legend_size=8, tick_size=10)
-    plt.savefig(f'{args.figures_dir}fig{fig_count}A-C.pdf', dpi=1000)
-
-    # Read divergence table
-    f_gene_diversity = f'{args.data_dir}gene_diversity_table.tsv'
-    gene_diversity_table = pd.read_csv(f_gene_diversity, sep='\t', index_col=0)
-    gene_diversity_table['mean_divergence'] = align_utils.calculate_divergence(gene_diversity_table['A-Bp_pS_mean'])
-    gene_diversity_table['min_divergence'] = align_utils.calculate_divergence(gene_diversity_table['A-Bp_pS_min'])
-    gene_diversity_table['max_divergence'] = align_utils.calculate_divergence(gene_diversity_table['A-Bp_pS_max'])
-    #gene_diversity_table['mean_divergence'] = gene_diversity_table['A-Bp_pS_mean']
-    #gene_diversity_table['min_divergence'] = gene_diversity_table['A-Bp_pS_min']
-    #gene_diversity_table['max_divergence'] = gene_diversity_table['A-Bp_pS_max']
-    gene_diversity_table = gene_diversity_table.loc[gene_diversity_table['mean_divergence'].notnull(), :]
-    gene_diversity_table = gene_diversity_table.sort_values('osbp_location')
-
-    example_ogs = ['YSG_0932', 'YSG_0699']
-    aln_segments = {'YSG_0932':(50, 251),'YSG_0699':(250, 451)}
-    ax_gt = plt.subplot(gspec[2, :])
-    ax_gt.text(-0.03, 0.8, 'C', transform=ax_gt.transAxes + trans, fontsize=10, fontweight='bold', va='bottom', usetex=False)
-    plot_genomic_troughs_panel(ax_gt, gene_diversity_table, species_cluster_genomes, pangenome_map, metadata, rng, pos_column='osbp_location', ylim=(0, 1.0), yticks=[0, 0.5, 1], d_low=0.1, random_sample=False, highlight=example_ogs, xlabel_size=14, tick_size=10)
-    plt.savefig(f'{args.figures_dir}fig{fig_count}A-C.pdf', dpi=1000)
-
-    for o in example_ogs:
-        plot_species_divergence_blowup(o, gene_diversity_table, savefig=f'{args.figures_dir}fig{fig_count}C_{o}.pdf', ylabel='', yticks=[0, 0.5, 1.], num_xticks=4, tick_size=10)
-
-
-    subsample_size = 40
-    axes_labels = ['D', 'E']
-    for i, og_id in enumerate(example_ogs):
-        # Make new figures for alignments
-        fig = plt.figure(figsize=(single_col_width, 0.55 * single_col_width))
-        ax = fig.add_subplot(111)
-
-        # Plot alignment
-        f_aln = f'{args.results_dir}alignments/v2/core_ogs_cleaned/{og_id}_cleaned_aln.fna'
-        aln = seq_utils.read_alignment(f_aln)
-        species_grouping = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
-
-        # Subsample alignments
-        temp = []
-        for species  in ['A', 'Bp', 'C']:
-            if species in species_grouping:
-                n_species = int(np.ceil(subsample_size * len(species_grouping[species]) / len(aln)))
-                temp.append(rng.choice(species_grouping[species], size=n_species, replace=False))
-        subsampled_ids = np.concatenate(temp)
-        aln_plot = align_utils.get_subsample_alignment(aln, subsampled_ids)
-        species_grouping = align_utils.sort_aln_rec_ids(aln_plot, pangenome_map, metadata)
-
-        xi, xf = aln_segments[og_id]
-        plot_alignment(aln_plot[:, xi:xf], annotation=species_grouping, annotation_style='lines', marker_size=4, reference='closest_to_consensus', fig_dpi=1000, ax=ax)
-
-        # Add labels
-        xticklabels = np.arange(xi, xf, 50)
-        xticks = np.arange(0, xf - xi + 1, 50)
-        ax.set_xticks(xticks)
-        ax.set_xticklabels([f'${x}$' for x in xticklabels])
-        ax.set_yticks([])
-        plt.tight_layout()
-        plt.savefig(f'{args.figures_dir}fig{fig_count}{axes_labels[i]}.pdf', dpi=1000)
-
-    fig_count += 1
-    print_break()
-
-
-def plot_hybrid_gene_frequencies(ax, hybrid_freq_table, species, xlabel='', ylabel='hybrid gene frequency', transform_counts=True, y_ref=0, lw=1.0, label_size=14, tick_size=12, legend_size=9, ms=3, legend_loc='best', min_msog_fraction=0.5, y_steps=np.array([0, 1, 2, 10, 30, 100])):
-
-    # Define variables
-    species_list = ['A', 'Bp', 'C', 'O']
-    donor_list = [s for s in species_list if s != species]
-    color_dict = {'A':'#E69F00', 'Bp':'#56B4E9', 'C':'#009E73', 'O':'#CC79A7', 'M':'#D55E00'}
-    donor_label_dict = {'A':r'$\alpha$', 'Bp':r'$\beta$', 'C':r'$\gamma$', 'O':'X'}
-    if species == 'A':
-        x_column = 'osa_location'
-    elif species == 'Bp':
-        x_column = 'osbp_location'
-
-    # Set up axis
-    if species == 'A':
-        ax.set_xlim(0, 1E-6 * utils.osa_genome_size)
-    elif species == 'Bp':
-        ax.set_xlim(0, 1E-6 * utils.osbp_genome_size)
-    ax.set_xlabel(xlabel, fontsize=label_size)
-    if ylabel != '':
-        ax.set_ylabel(ylabel, fontsize=label_size)
-    #ax.set_yticks([0, 1, 2, 3, 4])
-    #ax.set_yticklabels(['$0$', '$1$', '$2$','$5$','$15$'], fontsize=tick_size)
-    #ax.set_yticks([0, 1, 2, 3, 4, 5])
-    ax.set_yticks(np.arange(len(y_steps)))
-    ax.set_yticklabels([f'${y_i}$' for y_i in y_steps], fontsize=tick_size)
-    if transform_counts:
-        #ymax = height_transform(hybrid_freq_table[donor_list].sum(axis=1).max()) + 2
-        ymax = height_transform(hybrid_freq_table[donor_list].sum(axis=1).max()) + 3.5
-    else:
-        ymax = hybrid_freq_table[donor_list].sum(axis=1).max() + 2
-    ax.set_ylim(0, ymax)
-
-    ax.tick_params(labelsize=tick_size)
-
-    single_donor_idx = hybrid_freq_table.loc[(hybrid_freq_table[donor_list] > 0).sum(axis=1) == 1, :].index
-
-    offset = 0.01
-    legend_handles = {}
-    total_hybrids = 0
-    for s in donor_list:
-        x, y = hybrid_freq_table.loc[single_donor_idx, [x_column, s]].values.T
-        x = x[y > 0]
-        y = y[y > 0]
-        if transform_counts:
-            y = np.array([height_transform(yi, y_steps=y_steps) for yi in y])
-        total_hybrids += len(y)
-
-        #ps = ax.scatter(x[0], y[0] + offset, marker='o', s=ms**2, fc=color_dict[s], ec='white', lw=0.05, zorder=3, label=f'{donor_label_dict[s]}')
-        #legend_handles[donor_label_dict[s]] = ps
-        if s != 'C':
-            transfer_label = f'{donor_label_dict[s]}$\\rightarrow${donor_label_dict[species]}'
-        else:
-            transfer_label = f'{donor_label_dict[s]}$\leftrightarrow${donor_label_dict[species]}'
-        ps = ax.scatter(x[0], y[0] + offset, marker='o', s=ms**2, fc=color_dict[s], ec='white', lw=0.05, zorder=3, label=transfer_label)
-        ax.plot([x[0], x[0]], [y_ref, y_ref + y[0]], lw=lw, c=color_dict[s])
-        legend_handles[transfer_label] = ps
-        for i in range(1, len(x)):
-            ax.plot([x[i], x[i]], [y_ref, y_ref + y[i]], lw=lw, c=color_dict[s], zorder=2)
-            ax.scatter(x[i], y[i] + offset, marker='o', s=ms**2, fc=color_dict[s], ec='white', lw=0.05, zorder=3)
-
-        print(f'{s}->{species}: {np.sum(y > 0)} ({np.sum(y == 1)} singletons)')
-    print(f'Total hybrids into {species}: {total_hybrids}')
-
-    print('\n')
-
-    # Add MSOGs
-    hybrid_freq_table['fraction_mixed_clusters'] = hybrid_freq_table['M'] / hybrid_freq_table[['A', 'Bp', 'C', 'O', 'M']].sum(axis=1)
-    x_msog = hybrid_freq_table.loc[hybrid_freq_table['fraction_mixed_clusters'] >= min_msog_fraction, x_column].values
-    y_msog = ymax - 0.25 * np.ones(len(x_msog))
-    ps = ax.scatter(x_msog, y_msog, marker='|', s=100, ec=color_dict['M'], lw=0.5, zorder=3, label='M')
-    legend_handles['M'] = ps 
-    #ax.legend(handles=[legend_handles[k] for k in legend_handles], labels=[k for k in legend_handles], loc=legend_loc, fontsize=legend_size, frameon=False, ncol=2, borderaxespad=1.0)
-    ax.legend(handles=[legend_handles[k] for k in legend_handles], labels=[k for k in legend_handles], loc=legend_loc, fontsize=legend_size, frameon=True, ncol=4, borderaxespad=1.0)
-
-
-def height_transform(y, y_steps=np.array([0, 1, 2, 5, 15])):
-    '''
-    Maps input `y` to piecewise linear range from `steps[0]` to `steps[-1]`, with values in
-        `steps` mapped to consecutive integers.
-    '''
-
-    i0 = np.where(y - y_steps >= 0)[0][-1]
-    if i0 < len(y_steps) - 1:
-        dy = (y - y_steps[i0]) / (y_steps[i0 + 1] - y_steps[i0])
-    else:
-        dy = 0
-
-    return i0 + dy
-
-def calculate_species_divergence_along_genome(species_cluster_genomes, pangenome_map, metadata, min_length=200, metric='jc69'):
-    og_table = pangenome_map.og_table
-    core_og_ids = species_cluster_genomes.index[(species_cluster_genomes[['core_A', 'core_Bp']] == 'Yes').all(axis=1).values]
-    sorted_mapped_og_ids = np.array(species_cluster_genomes.loc[core_og_ids, :].sort_values('osbp_location').index)
-    sag_ids = pangenome_map.get_sag_ids()
-    species_sorted_sag_ids = metadata.sort_sags(sag_ids, by='species')
-
-    # Filter short OGs
-    filtered_idx = []
-    for og_id in sorted_mapped_og_ids:
-        avg_length = og_table.loc[og_table['parent_og_id'] == og_id, 'avg_length'].mean()
-        if avg_length > min_length + 100:
-            filtered_idx.append(og_id)
-
-    species_divergence_table = pd.DataFrame(index=filtered_idx, columns=['osa_location', 'osbp_location', 'mean_divergence', 'median_divergence', 'min_divergence', 'max_divergence', 'std_divergence'])
-    species_divergence_table[['osa_location', 'osbp_location']] = species_cluster_genomes.loc[filtered_idx, ['osa_location', 'osbp_location']]
-
-    for distance_metric in ['mean', 'median', 'min', 'max', 'std']:
-        pdist, og_ids = pangenome_map.calculate_group_divergence(filtered_idx, species_sorted_sag_ids['A'], species_sorted_sag_ids['Bp'], metric=distance_metric)
-        if metric == 'jc69':
-            div = align_utils.calculate_divergence(pdist)
-        else:
-            div = pdist
-        species_divergence_table.loc[og_ids, f'{distance_metric}_divergence'] = div
-
-    return species_divergence_table
-
-
-def plot_genomic_troughs_panel(ax, species_divergence_table, species_cluster_genomes, pangenome_map, metadata, rng, pos_column='genome_position', xlim=(-0.02, 3.05), ylim=(0, 0.35), yticks=[0, 0.15, 0.3, 0.45], xlabel_size=12, ylabel_size=18, dx=2, w=5, min_og_presence=0.2, min_length=200, d_low=0.03, random_sample=False, xlabel="OS-B' genome position (Mb)", highlight=[], tick_size=12):
-
-    # Set up axes
-    ax.set_xlabel(xlabel, fontsize=xlabel_size)
-    ax.set_ylabel(r'$d_S$', fontsize=ylabel_size, rotation=0, labelpad=10, va='center')
-    ax.set_xlim(xlim)
-    ax.set_ylim(ylim)
-    ax.set_yticks(yticks)
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.tick_params(labelsize=tick_size)
-
-    # Prepare data
-    core_og_ids = species_divergence_table.index.values[species_divergence_table['osbp_location'].notna()]
-    sorted_mapped_og_ids = np.array(species_cluster_genomes.loc[core_og_ids, :].sort_values('osbp_location').index)
-    species_divergence_table = species_divergence_table.loc[sorted_mapped_og_ids, :] # Sort table by genome position
-
-    y_smooth = np.array([np.mean(species_divergence_table['mean_divergence'].values[j:j + w]) for j in range(0, len(species_divergence_table) - w, dx)])
-    x_smooth = np.array([np.mean(species_divergence_table[pos_column].values[j:j + w]) for j in range(0, len(species_divergence_table) - w, dx)])
-    ax.plot(x_smooth, y_smooth, c='k', lw=1.5)
-
-    x = species_divergence_table[pos_column].values
-    y_min = species_divergence_table['min_divergence'].values
-    y_max = species_divergence_table['max_divergence'].values
-    ax.plot(x, y_min, c=open_colors['blue'][5], lw=0.25, ls='-', zorder=1)
-    ax.plot(x, y_max, c=open_colors['red'][5], lw=0.25, ls='-', zorder=1)
-
-    dx_highlight = 0.05
-    colors = ['gray', 'tab:red']
-    for i, og_id in enumerate(highlight):
-        x_og = species_divergence_table.loc[og_id, pos_column]
-        ax.indicate_inset([x_og - dx_highlight, ylim[0], 2 * dx_highlight, ylim[1] - ylim[0]], ec='k', lw=2.)
-
-
-def plot_species_divergence_blowup(og_id, species_divergence_table, savefig=None, dx=2, dx_window=0.05, dx_highlight=0.005, pos_column='osbp_location', label_size=14, xlabel='', ylabel=r'$d_S$', yticks=[0, 0.25, 0.5, 0.5, 0.75, 1], ylim=(0, 1), num_xticks=4, tick_size=12):
-    species_divergence_table = species_divergence_table.loc[species_divergence_table['mean_divergence'].notnull(), :]
-
-    x_og = species_divergence_table.loc[og_id, pos_column]
-    divergence_table_slice = species_divergence_table.loc[(species_divergence_table[pos_column] >= x_og - dx_window) & (species_divergence_table[pos_column] < x_og + dx_window), :]
-
-    fig = plt.figure(figsize=(0.7 * single_col_width, 0.3 * single_col_width))
-    ax = fig.add_subplot(111)
-
-    # Set up axes
-    ax.set_xlabel(xlabel, fontsize=label_size)
-    ax.set_ylabel(ylabel, fontsize=label_size)
-    ax.set_ylim(ylim)
-    xticks = np.linspace(x_og - dx_window, x_og + dx_window, num_xticks)
-    ax.set_xticks(xticks)
-    ax.set_yticks(yticks)
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.tick_params(labelsize=tick_size)
-
-
-    x = divergence_table_slice[pos_column].values
-    y = divergence_table_slice['mean_divergence'].values
-    ax.scatter(x, y, s=1.0**2, c='k')
-
-    w = 5
-    y_smooth = np.array([np.mean(divergence_table_slice['mean_divergence'].values[j:j + w]) for j in range(0, len(divergence_table_slice) - w, dx)])
-    x_smooth = np.array([np.mean(divergence_table_slice[pos_column].values[j:j + w]) for j in range(0, len(divergence_table_slice) - w, dx)])
-    ax.plot(x_smooth, y_smooth, c='k', lw=1.5, alpha=0.7)
-
-    x = divergence_table_slice[pos_column].values
-    y_min = divergence_table_slice['min_divergence'].values
-    y_max = divergence_table_slice['max_divergence'].values
-    ax.plot(x, y_min, c=open_colors['blue'][5], lw=0.5, ls='-', zorder=1)
-    ax.plot(x, y_max, c=open_colors['red'][5], lw=0.5, ls='-', zorder=1)
-
-    dx_highlight = 0.002
-    x_og = species_divergence_table.loc[og_id, pos_column]
-    ax.indicate_inset([x_og - dx_highlight, ylim[0], 2 * dx_highlight, ylim[1] - ylim[0]], ec='k', lw=2.)
-
-    plt.tight_layout()
-    if savefig is not None:
-        plt.savefig(savefig)
-
-
-
-###########################################################
 # Fig. 3 panels: Nucleotide-level analysis
 ###########################################################
 
@@ -1109,9 +801,8 @@ def calculate_rsq(block_haplotypes, randomize=False, rng=None):
     return Dsq / (Z + (Z <= 0.0)), num_samples
 
 
-
 ###########################################################
-# Fig. 2-4, 6 panels: Gene genetic diversity
+# Fig. 3: gene diversity figure
 ###########################################################
 
 def make_genetic_diversity_figure(pangenome_map, args, low_diversity_cutoff=0.05):
@@ -1143,14 +834,19 @@ def make_genetic_diversity_figure(pangenome_map, args, low_diversity_cutoff=0.05
     plot_gene_polymorphisms_axis(ax, syna_num_site_alleles, low_diversity_ogs, high_diversity_ogs, metadata, rng, args, label_fs=12)
     ax.set_xticks([0, 0.25, 0.5, 0.75, 1])
 
-    print(f'Low-diversity OGs: {syna_num_site_alleles.loc[low_diversity_ogs, "num_snps"].sum():.0f} 4D SNPs; {syna_num_site_alleles.loc[low_diversity_ogs, "L"].sum():.0f} 4D sites; piS = {syna_num_site_alleles.loc[low_diversity_ogs, "piS"].mean()}; {len(low_diversity_ogs)} loci')
-    print(f'High-diversity OGs: {syna_num_site_alleles.loc[high_diversity_ogs, "num_snps"].sum():.0f} 4D SNPs; {syna_num_site_alleles.loc[high_diversity_ogs, "L"].sum():.0f} 4D sites; piS = {syna_num_site_alleles.loc[high_diversity_ogs, "piS"].mean()}; {len(high_diversity_ogs)} loci')
-    
+    syna_num_site_alleles_all_sites = pd.read_csv(f'{args.data_dir}A_num_site_alleles_all_sites.tsv', sep='\t', index_col=0)
+    syna_num_site_alleles_all_sites['num_snps'] = syna_num_site_alleles_all_sites[['2', '3', '4']].sum(axis=1)
+    num_high_diversity_og_snps = syna_num_site_alleles_all_sites.loc[high_diversity_ogs, 'num_snps'].sum()
+    block_diversity_stats = pd.read_csv(f'{args.data_dir}A_core_snp_block_stats.tsv', sep='\t')
+    num_block_snps = block_diversity_stats.loc[block_diversity_stats.index.values[np.isin(block_diversity_stats['og_id'].values, high_diversity_ogs)], 'num_snps'].sum()
+    print(f'Low-diversity OGs: {syna_num_site_alleles.loc[low_diversity_ogs, "num_snps"].sum():.0f} 4D SNPs; {syna_num_site_alleles.loc[low_diversity_ogs, "L"].sum():.0f} 4D sites; piS = {syna_num_site_alleles.loc[low_diversity_ogs, "piS"].mean():.1e}; {len(low_diversity_ogs)} loci')
+    print(f'High-diversity OGs: {syna_num_site_alleles.loc[high_diversity_ogs, "num_snps"].sum():.0f} 4D SNPs; {syna_num_site_alleles.loc[high_diversity_ogs, "L"].sum():.0f} 4D sites; piS = {syna_num_site_alleles.loc[high_diversity_ogs, "piS"].mean():.1e}; {len(high_diversity_ogs)} loci')
+    print(f'\t{num_high_diversity_og_snps:.0f} SNPs; {num_block_snps:.0f} SNPs in blocks; {syna_num_site_alleles_all_sites.loc[high_diversity_ogs, "L"].sum():.0f} sites; fraction of block SNPs {num_block_snps / num_high_diversity_og_snps:.3f}; {len(high_diversity_ogs)} loci')
+    print('\n')
+
     # Bp SNP polymorphism
     ax = plt.subplot(gspec[1, 1])
     ax.text(-0.20, 1.05, 'C', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
-    f_block_stats = f'{args.data_dir}A_core_snp_block_stats.tsv'
-    block_diversity_stats = pd.read_csv(f_block_stats, sep='\t')
     synbp_num_site_alleles = pd.read_csv(f'{args.data_dir}Bp_num_site_alleles_4D.tsv', sep='\t', index_col=0)
     synbp_num_site_alleles['piS'] = gene_diversity_table.loc[synbp_num_site_alleles.index.values, 'Bp_pS_mean']
     synbp_num_site_alleles['num_snps'] = synbp_num_site_alleles[['2', '3', '4']].sum(axis=1)
@@ -1162,10 +858,12 @@ def make_genetic_diversity_figure(pangenome_map, args, low_diversity_cutoff=0.05
     ax.set_ylabel('')
     ax.set_xticks([0, 0.25, 0.5, 0.75, 1])
 
+    f_block_stats = f'{args.data_dir}Bp_core_snp_block_stats.tsv'
+    block_diversity_stats = pd.read_csv(f_block_stats, sep='\t')
     num_total_snps = synbp_num_site_alleles_all_sites.loc[:, 'num_snps'].sum()
     num_block_snps = block_diversity_stats.loc[block_diversity_stats.index.values[np.isin(block_diversity_stats['og_id'].values, synbp_num_site_alleles_all_sites.index.values)], 'num_snps'].sum()   
-    print(f'Beta OGs: {synbp_num_site_alleles["num_snps"].sum()} 4D SNPs; {synbp_num_site_alleles["L"].sum()} 4D sites; piS = {synbp_num_site_alleles["piS"].mean()}; {len(synbp_num_site_alleles)} loci')
-    print(f'\t{num_total_snps:.0f} SNPs; {num_block_snps:.0f} SNPs in blocks; {synbp_num_site_alleles_all_sites.loc[:, "L"].sum():.0f} sites; fraction of block SNPs {num_block_snps / num_total_snps:.3f}')
+    print(f'Beta OGs: {synbp_num_site_alleles["num_snps"].sum():.0f} 4D SNPs; {synbp_num_site_alleles["L"].sum():.0f} 4D sites; piS = {synbp_num_site_alleles["piS"].mean():.1e}; {len(synbp_num_site_alleles)} loci')
+    print(f'\t{num_total_snps:.0f} SNPs; {num_block_snps:.0f} SNPs in blocks; {synbp_num_site_alleles_all_sites.loc[:, "L"].sum():.0f} sites; fraction of block SNPs {num_block_snps / num_total_snps:.3f};  {len(synbp_num_site_alleles_all_sites)} loci')
 
 
     # Gene diversity comparison
@@ -1174,62 +872,412 @@ def make_genetic_diversity_figure(pangenome_map, args, low_diversity_cutoff=0.05
     plot_mixed_gene_diversity_axis(ax, syna_num_site_alleles, synbp_num_site_alleles, low_diversity_ogs, high_diversity_ogs, args)
 
     plt.tight_layout(h_pad=0.05, rect=(0, 0.00, 1, 0.95))
-    plt.savefig(f'{args.figures_dir}fig{fig_count}.pdf')
+    plt.savefig(f'{args.figures_dir}fig{fig_count}_gene_diversity.pdf')
     plt.close()
+    print_break()
 
-    plot_gene_polymorphisms_figure(syna_num_site_alleles, low_diversity_ogs, high_diversity_ogs, metadata, rng, args, low_diversity_cutoff=low_diversity_cutoff)
+    fig_count += 1
 
-    '''
-    # Get single-site statistics tables
-    syna_num_site_alleles = pd.read_csv(f'{args.data_dir}A_num_site_alleles_4D.tsv', sep='\t', index_col=0)
-    low_diversity_ogs = np.array(syna_num_site_alleles.loc[syna_num_site_alleles['fraction_polymorphic'] < low_diversity_cutoff, :].index)
-    high_diversity_ogs = np.array([o for o in syna_num_site_alleles.index if o not in low_diversity_ogs])
-    syna_num_site_alleles['num_snps'] = syna_num_site_alleles[['2', '3', '4']].sum(axis=1)
-    n, n_counts = utils.sorted_unique(syna_num_site_alleles.loc[low_diversity_ogs, 'num_snps'], sort_by='tag', sort='ascending')
 
-    #syna_mean_diversity = syna_num_site_alleles.loc[low_diversity_ogs, "piS"].mean()
-    syna_num_site_alleles['piS'] = gene_diversity_table.loc[syna_num_site_alleles.index.values, 'A_pS_mean']
-    syna_mean_diversity = gene_diversity_table.loc[low_diversity_ogs, 'A_pS_mean'].mean()
+###########################################################
+# Fig. 4: orthogroup clusters
+###########################################################
 
-    print(f'Low-diversity OGs: {syna_num_site_alleles.loc[low_diversity_ogs, "num_snps"].sum():.0f} 4D SNPs; {syna_num_site_alleles.loc[low_diversity_ogs, "L"].sum():.0f} 4D sites; piS = {syna_num_site_alleles.loc[low_diversity_ogs, "piS"].mean()}; {len(low_diversity_ogs)} loci')
-    print(f'High-diversity OGs: {syna_num_site_alleles.loc[high_diversity_ogs, "num_snps"].sum():.0f} 4D SNPs; {syna_num_site_alleles.loc[high_diversity_ogs, "L"].sum():.0f} 4D sites; piS = {syna_num_site_alleles.loc[high_diversity_ogs, "piS"].mean()}; {len(high_diversity_ogs)} loci')
+def make_gene_cluster_figure(pangenome_map, args):
+    global fig_count
+    print(f'Plotting Fig. {fig_count}...\n')
+
+    metadata = MetadataMap()
+
+    fig = plt.figure(figsize=(double_col_width, 1.8 * single_col_width))
+    ax = fig.add_subplot(311)
+    ax.text(-0.05, 1.05, 'A', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+    ax.text(-0.05, 0.65, r'$\boldsymbol{\beta}$', color='tab:blue', transform=ax.transAxes, fontsize=14, va='center')
+    ax.text(-0.05, 0.35, r'$\boldsymbol{\gamma}$', color='tab:green', transform=ax.transAxes, fontsize=14, va='center')
+    ax.text(-0.05, 0.12, r'$\boldsymbol{\alpha}$', color='tab:orange', transform=ax.transAxes, fontsize=14, va='center')
+    aln = seq_utils.read_alignment('../results/tests/main_figures_data/YSG_0316_plot_aln.fna')
+    species_grouping = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
+    plot_alignment(aln, annotation=species_grouping, annotation_style='lines', marker_size=4, reference='closest_to_consensus', fig_dpi=1000, ax=ax)
+    ax.set_title('No hybrid genes', fontsize=14)
+
+    ax = fig.add_subplot(312)
+    ax.text(-0.05, 1.05, 'B', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+    ax.text(-0.05, 0.65, r'$\boldsymbol{\beta}$', color='tab:blue', transform=ax.transAxes, fontsize=14, va='center')
+    y1 = 0.31
+    ax.annotate(r'$\boldsymbol{\beta}$', xy=(-0.04, y1), xytext=(-0.09, y1), arrowprops=dict(arrowstyle='->', shrinkA=1), textcoords=ax.transAxes, xycoords=ax.transAxes, ha='center', va='center', color='tab:blue', fontsize=14)
+    ax.text(-0.03, y1, r'$\boldsymbol{\alpha}$', color='tab:orange', transform=ax.transAxes, fontsize=14, va='center', ha='center')
+    y2 = 0.18
+    ax.annotate(r'$\boldsymbol{\alpha}$', xy=(-0.04, y2), xytext=(-0.09, y2), arrowprops=dict(arrowstyle='->', shrinkA=1), textcoords=ax.transAxes, xycoords=ax.transAxes, ha='center', va='center', color='tab:orange', fontsize=14)
+    ax.text(-0.03, y2, r'$\boldsymbol{\beta}$', color='tab:blue', transform=ax.transAxes, fontsize=14, va='center', ha='center')
+    ax.text(-0.05, 0.05, r'$\boldsymbol{\alpha}$', color='tab:orange', transform=ax.transAxes, fontsize=14, va='center')
+
+    #ax.text(-0.05, 0.7, r'$\boldsymbol{\beta}$', color='tab:blue', transform=ax.transAxes, fontsize=14, va='center', ha='center')
+    ##ax.text(-0.05, 0.45, r'$\boldsymbol{\gamma}$', color='tab:green', transform=ax.transAxes, fontsize=14, va='center', ha='center')
+
+    aln = seq_utils.read_alignment('../results/tests/main_figures_data/YSG_0264c_plot_aln_v2.fna')
+    species_grouping = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
+    plot_alignment(aln, annotation=species_grouping, annotation_style='lines', marker_size=4, reference='closest_to_consensus', fig_dpi=1000, ax=ax)
+    ax.set_title('Simple hybrid genes', fontsize=14)
+
+    ax = fig.add_subplot(313)
+    ax.text(-0.05, 1.05, 'C', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+    ax.text(-0.05, 0.7, r'$\boldsymbol{\beta}$', color='tab:blue', transform=ax.transAxes, fontsize=14, va='center', ha='center')
+    ax.text(-0.05, 0.45, r'$\boldsymbol{\gamma}$', color='tab:green', transform=ax.transAxes, fontsize=14, va='center', ha='center')
+    ax.text(-0.05, 0.15, r'$\boldsymbol{\alpha}$', color='tab:orange', transform=ax.transAxes, fontsize=14, va='center', ha='center')
+    ax.annotate(r'', xy=(-0.05, 0.48), xytext=(-0.05, 0.65), arrowprops=dict(arrowstyle='<->', shrinkA=1, shrinkB=1), textcoords=ax.transAxes, xycoords=ax.transAxes, ha='center')
+    ax.annotate(r'', xy=(-0.05, 0.37), xytext=(-0.05, 0.19), arrowprops=dict(arrowstyle='<->', shrinkA=1, shrinkB=1), textcoords=ax.transAxes, xycoords=ax.transAxes, ha='center')
+    aln = seq_utils.read_alignment('../results/tests/main_figures_data/YSG_1125_plot_aln_v2.fna')
+    species_grouping = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
+    plot_alignment(aln, annotation=species_grouping, annotation_style='lines', marker_size=4, reference='closest_to_consensus', fig_dpi=1000, ax=ax)
+    ax.set_title('Mosaic hybrid genes', fontsize=14)
+
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}fig{fig_count}_og_clusters.pdf')
+    plt.close()
+    print_break()
+
+    fig_count += 1
+
+
+###########################################################
+# Fig. 5 panels: Gene-level analysis
+###########################################################
+
+def make_gene_level_figure(pangenome_map, args, rng):
+    global fig_count
+    print(f'Plotting Fig. {fig_count} panels...\n')
+
+    hybridization_dir = f'{args.results_dir}hybridization/'
+    species_cluster_genomes = pd.read_csv(f'{hybridization_dir}labeled_sequence_cluster_genomes.tsv', sep='\t', index_col=0)
+    metadata = MetadataMap()
+
+    syna_hybrid_donor_frequency_table, synbp_hybrid_donor_frequency_table = get_species_hybridization_tables(args)
+
+    for species in ['C', 'O']:
+        print(f'High-frequency {species} hybrids (n>10):')
+        print(syna_hybrid_donor_frequency_table.loc[syna_hybrid_donor_frequency_table[species] > 10, :])
+        print(synbp_hybrid_donor_frequency_table.loc[synbp_hybrid_donor_frequency_table[species] > 10, :])
+        print('\n')
+
+    ncols = 2
+    nrows = 3
+    ratio = 4
+    ratio2 = 1.5
+    fig = plt.figure(figsize=(double_col_width, 1.0 * single_col_width))
+    gspec = gridspec.GridSpec(figure=fig,
+            ncols=ncols, nrows=nrows, 
+            height_ratios=[ratio, ratio, ratio2], hspace=0.4,
+            top=0.95, bottom=0.15)
+
+    # label physical distance to the left and up:
+    trans = mtransforms.ScaledTranslation(-20/72, 7/72, fig.dpi_scale_trans)
     
-    syna_num_site_alleles_all_sites = pd.read_csv(f'{args.data_dir}A_num_site_alleles_4D.tsv', sep='\t', index_col=0)
-    syna_num_site_alleles_all_sites['num_snps'] = syna_num_site_alleles_all_sites[['2', '3', '4']].sum(axis=1)
 
-    f_block_stats = f'{args.data_dir}A_core_snp_block_stats.tsv'
-    block_diversity_stats = pd.read_csv(f_block_stats, sep='\t')
-    num_high_diversity_og_snps = syna_num_site_alleles_all_sites.loc[high_diversity_ogs, 'num_snps'].sum()
-    num_block_snps = block_diversity_stats.loc[block_diversity_stats.index.values[np.isin(block_diversity_stats['og_id'].values, high_diversity_ogs)], 'num_snps'].sum()
-    print(f'\t{num_high_diversity_og_snps:.0f} SNPs; {num_block_snps:.0f} SNPs in blocks; {syna_num_site_alleles_all_sites.loc[high_diversity_ogs, "L"].sum():.0f} sites; fraction of block SNPs {num_block_snps / num_high_diversity_og_snps:.3f}; {len(high_diversity_ogs)} loci')
+    inner_grid = gspec[:2, :].subgridspec(ncols=2, nrows=2, wspace=0, width_ratios=[1, 69], hspace=0.65)
+    axs_merged = plt.subplot(inner_grid[:, 0])
+    for side in ['left', 'top', 'right', 'bottom']:
+        axs_merged.spines[side].set_color('none')
+    axs_merged.set_xticks([])
+    axs_merged.set_yticks([])
+    axs_merged.set_ylabel(r'Hybrid gene frequency', fontsize=14, labelpad=18)
+
+    ax = plt.subplot(inner_grid[0, 1])
+    ax.text(0.0, 0.95, 'A', transform=ax.transAxes + trans, fontsize=10, fontweight='bold', va='center', usetex=False)
+    plot_hybrid_gene_frequencies(ax, syna_hybrid_donor_frequency_table, 'A', xlabel='OS-A genome position (Mb)', lw=0.75, ms=5, ylabel='', legend_loc='upper right', legend_size=8, tick_size=10)
+    ax = plt.subplot(inner_grid[1, 1])
+    ax.text(0.0, 0.95, 'B', transform=ax.transAxes + trans, fontsize=10, fontweight='bold', va='center', usetex=False)
+    plot_hybrid_gene_frequencies(ax, synbp_hybrid_donor_frequency_table, 'Bp', xlabel="", lw=0.75, ms=5, ylabel='', legend_loc='upper right', legend_size=8, tick_size=10)
+    plt.savefig(f'{args.figures_dir}fig{fig_count}A-C.pdf', dpi=1000)
+
+    # Read divergence table
+    f_gene_diversity = f'{args.data_dir}gene_diversity_table.tsv'
+    gene_diversity_table = pd.read_csv(f_gene_diversity, sep='\t', index_col=0)
+    gene_diversity_table['mean_divergence'] = align_utils.calculate_divergence(gene_diversity_table['A-Bp_pS_mean'])
+    gene_diversity_table['min_divergence'] = align_utils.calculate_divergence(gene_diversity_table['A-Bp_pS_min'])
+    gene_diversity_table['max_divergence'] = align_utils.calculate_divergence(gene_diversity_table['A-Bp_pS_max'])
+    #gene_diversity_table['mean_divergence'] = gene_diversity_table['A-Bp_pS_mean']
+    #gene_diversity_table['min_divergence'] = gene_diversity_table['A-Bp_pS_min']
+    #gene_diversity_table['max_divergence'] = gene_diversity_table['A-Bp_pS_max']
+    gene_diversity_table = gene_diversity_table.loc[gene_diversity_table['mean_divergence'].notnull(), :]
+    gene_diversity_table = gene_diversity_table.sort_values('osbp_location')
+
+    example_ogs = ['YSG_0932', 'YSG_0699']
+    aln_segments = {'YSG_0932':(50, 251),'YSG_0699':(250, 451)}
+    ax_gt = plt.subplot(gspec[2, :])
+    ax_gt.text(-0.03, 0.8, 'C', transform=ax_gt.transAxes + trans, fontsize=10, fontweight='bold', va='bottom', usetex=False)
+    plot_genomic_troughs_panel(ax_gt, gene_diversity_table, species_cluster_genomes, pangenome_map, metadata, rng, pos_column='osbp_location', ylim=(0, 1.0), yticks=[0, 0.5, 1], d_low=0.1, random_sample=False, highlight=example_ogs, xlabel_size=14, tick_size=10)
+    plt.savefig(f'{args.figures_dir}fig{fig_count}A-C.pdf', dpi=1000)
+
+    for o in example_ogs:
+        plot_species_divergence_blowup(o, gene_diversity_table, savefig=f'{args.figures_dir}fig{fig_count}C_{o}_v1.pdf', ylabel='', yticks=[0, 0.5, 1.], num_xticks=4, tick_size=10)
+        plot_species_divergence_blowup(o, gene_diversity_table, savefig=f'{args.figures_dir}fig{fig_count}C_{o}.pdf', ylabel='$d_S$', yticks=[0, 0.5, 1.], num_xticks=4, tick_size=9)
+
+
+    subsample_size = 40
+    axes_labels = ['D', 'E']
+    for i, og_id in enumerate(example_ogs):
+        # Make new figures for alignments
+        fig = plt.figure(figsize=(single_col_width, 0.55 * single_col_width))
+        ax = fig.add_subplot(111)
+
+        # Plot alignment
+        f_aln = f'{args.results_dir}alignments/v2/core_ogs_cleaned/{og_id}_cleaned_aln.fna'
+        aln = seq_utils.read_alignment(f_aln)
+        species_grouping = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
+
+        # Subsample alignments
+        temp = []
+        for species  in ['A', 'Bp', 'C']:
+            if species in species_grouping:
+                n_species = int(np.ceil(subsample_size * len(species_grouping[species]) / len(aln)))
+                temp.append(rng.choice(species_grouping[species], size=n_species, replace=False))
+        subsampled_ids = np.concatenate(temp)
+        aln_plot = align_utils.get_subsample_alignment(aln, subsampled_ids)
+        species_grouping = align_utils.sort_aln_rec_ids(aln_plot, pangenome_map, metadata)
+
+        xi, xf = aln_segments[og_id]
+        plot_alignment(aln_plot[:, xi:xf], annotation=species_grouping, annotation_style='lines', marker_size=4, reference='closest_to_consensus', fig_dpi=1000, ax=ax)
+
+        # Add labels
+        xticklabels = np.arange(xi, xf, 50)
+        xticks = np.arange(0, xf - xi + 1, 50)
+        ax.set_xticks(xticks)
+        ax.set_xticklabels([f'${x}$' for x in xticklabels])
+        ax.set_yticks([])
+        plt.tight_layout()
+        plt.savefig(f'{args.figures_dir}fig{fig_count}{axes_labels[i]}.pdf', dpi=1000)
+
+    fig_count += 1
+    print_break()
+
+
+def plot_hybrid_gene_frequencies(ax, hybrid_freq_table, species, xlabel='', ylabel='hybrid gene frequency', transform_counts=True, y_ref=0, lw=1.0, label_size=14, tick_size=12, legend_size=9, ms=3, legend_loc='best', min_msog_fraction=0.5, y_steps=np.array([0, 1, 2, 10, 30, 100])):
+
+    # Define variables
+    species_list = ['A', 'Bp', 'C', 'O']
+    donor_list = [s for s in species_list if s != species]
+    color_dict = {'A':'#E69F00', 'Bp':'#56B4E9', 'C':'#009E73', 'O':'#CC79A7', 'M':'#D55E00'}
+    donor_label_dict = {'A':r'$\alpha$', 'Bp':r'$\beta$', 'C':r'$\gamma$', 'O':'X'}
+    if species == 'A':
+        x_column = 'osa_location'
+    elif species == 'Bp':
+        x_column = 'osbp_location'
+
+    # Set up axis
+    if species == 'A':
+        ax.set_xlim(0, 1E-6 * utils.osa_genome_size)
+    elif species == 'Bp':
+        ax.set_xlim(0, 1E-6 * utils.osbp_genome_size)
+    ax.set_xlabel(xlabel, fontsize=label_size)
+    if ylabel != '':
+        ax.set_ylabel(ylabel, fontsize=label_size)
+    #ax.set_yticks([0, 1, 2, 3, 4])
+    #ax.set_yticklabels(['$0$', '$1$', '$2$','$5$','$15$'], fontsize=tick_size)
+    #ax.set_yticks([0, 1, 2, 3, 4, 5])
+    ax.set_yticks(np.arange(len(y_steps)))
+    ax.set_yticklabels([f'${y_i}$' for y_i in y_steps], fontsize=tick_size)
+    if transform_counts:
+        #ymax = height_transform(hybrid_freq_table[donor_list].sum(axis=1).max()) + 2
+        ymax = height_transform(hybrid_freq_table[donor_list].sum(axis=1).max()) + 3.5
+    else:
+        ymax = hybrid_freq_table[donor_list].sum(axis=1).max() + 2
+    ax.set_ylim(0, ymax)
+
+    ax.tick_params(labelsize=tick_size)
+
+    single_donor_idx = hybrid_freq_table.loc[(hybrid_freq_table[donor_list] > 0).sum(axis=1) == 1, :].index
+
+    offset = 0.01
+    legend_handles = {}
+    total_hybrids = 0
+    for s in donor_list:
+        x, y = hybrid_freq_table.loc[single_donor_idx, [x_column, s]].values.T
+        x = x[y > 0]
+        y = y[y > 0]
+        if transform_counts:
+            y = np.array([height_transform(yi, y_steps=y_steps) for yi in y])
+        total_hybrids += len(y)
+
+        #ps = ax.scatter(x[0], y[0] + offset, marker='o', s=ms**2, fc=color_dict[s], ec='white', lw=0.05, zorder=3, label=f'{donor_label_dict[s]}')
+        #legend_handles[donor_label_dict[s]] = ps
+        if s != 'C':
+            transfer_label = f'{donor_label_dict[s]}$\\rightarrow${donor_label_dict[species]}'
+        else:
+            transfer_label = f'{donor_label_dict[s]}$\leftrightarrow${donor_label_dict[species]}'
+        ps = ax.scatter(x[0], y[0] + offset, marker='o', s=ms**2, fc=color_dict[s], ec='white', lw=0.05, zorder=3, label=transfer_label)
+        ax.plot([x[0], x[0]], [y_ref, y_ref + y[0]], lw=lw, c=color_dict[s])
+        legend_handles[transfer_label] = ps
+        for i in range(1, len(x)):
+            ax.plot([x[i], x[i]], [y_ref, y_ref + y[i]], lw=lw, c=color_dict[s], zorder=2)
+            ax.scatter(x[i], y[i] + offset, marker='o', s=ms**2, fc=color_dict[s], ec='white', lw=0.05, zorder=3)
+
+        print(f'{s}->{species}: {np.sum(y > 0)} ({np.sum(y == 1)} singletons)')
+    print(f'Total hybrids into {species}: {total_hybrids}')
+
     print('\n')
 
-    rng = np.random.default_rng(args.random_seed)
-    plot_gene_polymorphisms_figure(syna_num_site_alleles, low_diversity_ogs, high_diversity_ogs, metadata, rng, args, low_diversity_cutoff=low_diversity_cutoff)
-    #plot_gene_diversity_distribution(syna_num_site_alleles, low_diversity_ogs, high_diversity_ogs, 'A', args)
+    # Add MSOGs
+    hybrid_freq_table['fraction_mixed_clusters'] = hybrid_freq_table['M'] / hybrid_freq_table[['A', 'Bp', 'C', 'O', 'M']].sum(axis=1)
+    x_msog = hybrid_freq_table.loc[hybrid_freq_table['fraction_mixed_clusters'] >= min_msog_fraction, x_column].values
+    y_msog = ymax - 0.25 * np.ones(len(x_msog))
+    ps = ax.scatter(x_msog, y_msog, marker='|', s=100, ec=color_dict['M'], lw=0.5, zorder=3, label='M')
+    legend_handles['M'] = ps 
+    #ax.legend(handles=[legend_handles[k] for k in legend_handles], labels=[k for k in legend_handles], loc=legend_loc, fontsize=legend_size, frameon=False, ncol=2, borderaxespad=1.0)
+    ax.legend(handles=[legend_handles[k] for k in legend_handles], labels=[k for k in legend_handles], loc=legend_loc, fontsize=legend_size, frameon=True, ncol=4, borderaxespad=1.0)
 
-    # Bp figures
-    synbp_num_site_alleles = pd.read_csv(f'{args.data_dir}Bp_num_site_alleles_4D.tsv', sep='\t', index_col=0)
-    synbp_num_site_alleles['piS'] = gene_diversity_table.loc[synbp_num_site_alleles.index.values, 'Bp_pS_mean']
-    synbp_num_site_alleles['num_snps'] = synbp_num_site_alleles[['2', '3', '4']].sum(axis=1)
 
-    synbp_low_diversity_ogs = synbp_num_site_alleles.index.values
-    synbp_high_diversity_ogs = np.array([o for o in synbp_num_site_alleles.index if o not in synbp_low_diversity_ogs])
-
-    print(f'Beta OGs: {synbp_num_site_alleles["num_snps"].sum()} 4D SNPs; {synbp_num_site_alleles["L"].sum()} 4D sites; piS = {synbp_num_site_alleles["piS"].mean()}; {len(synbp_num_site_alleles)} loci')
-
-    synbp_num_site_alleles_all_sites = pd.read_csv(f'{args.data_dir}Bp_num_site_alleles_all_sites.tsv', sep='\t', index_col=0)
-    synbp_num_site_alleles_all_sites['num_snps'] = synbp_num_site_alleles_all_sites[['2', '3', '4']].sum(axis=1)
-    num_total_snps = synbp_num_site_alleles_all_sites.loc[:, 'num_snps'].sum()
-    num_block_snps = block_diversity_stats.loc[block_diversity_stats.index.values[np.isin(block_diversity_stats['og_id'].values, synbp_num_site_alleles_all_sites.index.values)], 'num_snps'].sum()   
-    print(f'\t{num_total_snps:.0f} SNPs; {num_block_snps:.0f} SNPs in blocks; {synbp_num_site_alleles_all_sites.loc[:, "L"].sum():.0f} sites; fraction of block SNPs {num_block_snps / num_total_snps:.3f}')
-
-    plot_gene_polymorphisms_figure(synbp_num_site_alleles, synbp_low_diversity_ogs, synbp_high_diversity_ogs, metadata, rng, args, species='Bp', low_diversity_cutoff=low_diversity_cutoff, inset=False, fit='mean')
-    #plot_gene_diversity_distribution(synbp_num_site_alleles, synbp_low_diversity_ogs, synbp_high_diversity_ogs, 'Bp', args)
-
-    plot_mixed_gene_diversity_distribution(syna_num_site_alleles, synbp_num_site_alleles, low_diversity_ogs, high_diversity_ogs, args)
-    print_break()
+def height_transform(y, y_steps=np.array([0, 1, 2, 5, 15])):
     '''
+    Maps input `y` to piecewise linear range from `steps[0]` to `steps[-1]`, with values in
+        `steps` mapped to consecutive integers.
+    '''
+
+    i0 = np.where(y - y_steps >= 0)[0][-1]
+    if i0 < len(y_steps) - 1:
+        dy = (y - y_steps[i0]) / (y_steps[i0 + 1] - y_steps[i0])
+    else:
+        dy = 0
+
+    return i0 + dy
+
+def calculate_species_divergence_along_genome(species_cluster_genomes, pangenome_map, metadata, min_length=200, metric='jc69'):
+    og_table = pangenome_map.og_table
+    core_og_ids = species_cluster_genomes.index[(species_cluster_genomes[['core_A', 'core_Bp']] == 'Yes').all(axis=1).values]
+    sorted_mapped_og_ids = np.array(species_cluster_genomes.loc[core_og_ids, :].sort_values('osbp_location').index)
+    sag_ids = pangenome_map.get_sag_ids()
+    species_sorted_sag_ids = metadata.sort_sags(sag_ids, by='species')
+
+    # Filter short OGs
+    filtered_idx = []
+    for og_id in sorted_mapped_og_ids:
+        avg_length = og_table.loc[og_table['parent_og_id'] == og_id, 'avg_length'].mean()
+        if avg_length > min_length + 100:
+            filtered_idx.append(og_id)
+
+    species_divergence_table = pd.DataFrame(index=filtered_idx, columns=['osa_location', 'osbp_location', 'mean_divergence', 'median_divergence', 'min_divergence', 'max_divergence', 'std_divergence'])
+    species_divergence_table[['osa_location', 'osbp_location']] = species_cluster_genomes.loc[filtered_idx, ['osa_location', 'osbp_location']]
+
+    for distance_metric in ['mean', 'median', 'min', 'max', 'std']:
+        pdist, og_ids = pangenome_map.calculate_group_divergence(filtered_idx, species_sorted_sag_ids['A'], species_sorted_sag_ids['Bp'], metric=distance_metric)
+        if metric == 'jc69':
+            div = align_utils.calculate_divergence(pdist)
+        else:
+            div = pdist
+        species_divergence_table.loc[og_ids, f'{distance_metric}_divergence'] = div
+
+    return species_divergence_table
+
+
+def plot_genomic_troughs_panel(ax, species_divergence_table, species_cluster_genomes, pangenome_map, metadata, rng, pos_column='genome_position', xlim=(-0.02, 3.05), ylim=(0, 0.35), yticks=[0, 0.15, 0.3, 0.45], xlabel_size=12, ylabel_size=18, dx=2, w=5, min_og_presence=0.2, min_length=200, d_low=0.03, random_sample=False, xlabel="OS-B' genome position (Mb)", highlight=[], tick_size=12):
+
+    # Set up axes
+    ax.set_xlabel(xlabel, fontsize=xlabel_size)
+    ax.set_ylabel(r'$d_S$', fontsize=ylabel_size, rotation=0, labelpad=10, va='center')
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.set_yticks(yticks)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.tick_params(labelsize=tick_size)
+
+    # Prepare data
+    core_og_ids = species_divergence_table.index.values[species_divergence_table['osbp_location'].notna()]
+    sorted_mapped_og_ids = np.array(species_cluster_genomes.loc[core_og_ids, :].sort_values('osbp_location').index)
+    species_divergence_table = species_divergence_table.loc[sorted_mapped_og_ids, :] # Sort table by genome position
+
+    y_smooth = np.array([np.mean(species_divergence_table['mean_divergence'].values[j:j + w]) for j in range(0, len(species_divergence_table) - w, dx)])
+    x_smooth = np.array([np.mean(species_divergence_table[pos_column].values[j:j + w]) for j in range(0, len(species_divergence_table) - w, dx)])
+    ax.plot(x_smooth, y_smooth, c='k', lw=1.5)
+
+    x = species_divergence_table[pos_column].values
+    y_min = species_divergence_table['min_divergence'].values
+    y_max = species_divergence_table['max_divergence'].values
+    ax.plot(x, y_min, c=open_colors['blue'][5], lw=0.25, ls='-', zorder=1)
+    ax.plot(x, y_max, c=open_colors['red'][5], lw=0.25, ls='-', zorder=1)
+
+    dx_highlight = 0.05
+    colors = ['gray', 'tab:red']
+    for i, og_id in enumerate(highlight):
+        x_og = species_divergence_table.loc[og_id, pos_column]
+        ax.indicate_inset([x_og - dx_highlight, ylim[0], 2 * dx_highlight, ylim[1] - ylim[0]], ec='k', lw=2.)
+
+
+def plot_species_divergence_blowup(og_id, species_divergence_table, savefig=None, dx=2, dx_window=0.05, dx_highlight=0.005, pos_column='osbp_location', label_size=14, xlabel='', ylabel=r'$d_S$', yticks=[0, 0.25, 0.5, 0.5, 0.75, 1], ylim=(0, 1), num_xticks=4, tick_size=12):
+    species_divergence_table = species_divergence_table.loc[species_divergence_table['mean_divergence'].notnull(), :]
+
+    x_og = species_divergence_table.loc[og_id, pos_column]
+    divergence_table_slice = species_divergence_table.loc[(species_divergence_table[pos_column] >= x_og - dx_window) & (species_divergence_table[pos_column] < x_og + dx_window), :]
+
+    fig = plt.figure(figsize=(0.7 * single_col_width, 0.3 * single_col_width))
+    ax = fig.add_subplot(111)
+
+    # Set up axes
+    ax.set_xlabel(xlabel, fontsize=label_size)
+    #ax.set_ylabel(ylabel, fontsize=label_size)
+    ax.set_ylabel(ylabel, fontsize=label_size, rotation=0, labelpad=8)
+    ax.set_ylim(ylim)
+    xticks = np.linspace(x_og - dx_window, x_og + dx_window, num_xticks)
+    ax.set_xticks(xticks)
+    ax.set_yticks(yticks)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.tick_params(labelsize=tick_size)
+
+
+    x = divergence_table_slice[pos_column].values
+    y = divergence_table_slice['mean_divergence'].values
+    ax.scatter(x, y, s=1.0**2, c='k')
+
+    w = 5
+    y_smooth = np.array([np.mean(divergence_table_slice['mean_divergence'].values[j:j + w]) for j in range(0, len(divergence_table_slice) - w, dx)])
+    x_smooth = np.array([np.mean(divergence_table_slice[pos_column].values[j:j + w]) for j in range(0, len(divergence_table_slice) - w, dx)])
+    ax.plot(x_smooth, y_smooth, c='k', lw=1.5, alpha=0.7)
+
+    x = divergence_table_slice[pos_column].values
+    y_min = divergence_table_slice['min_divergence'].values
+    y_max = divergence_table_slice['max_divergence'].values
+    ax.plot(x, y_min, c=open_colors['blue'][5], lw=0.5, ls='-', zorder=1)
+    ax.plot(x, y_max, c=open_colors['red'][5], lw=0.5, ls='-', zorder=1)
+
+    dx_highlight = 0.002
+    x_og = species_divergence_table.loc[og_id, pos_column]
+    ax.indicate_inset([x_og - dx_highlight, ylim[0], 2 * dx_highlight, ylim[1] - ylim[0]], ec='k', lw=2.)
+
+    plt.tight_layout()
+    if savefig is not None:
+        plt.savefig(savefig)
+
+
+###########################################################
+# Fig. 6: Simple hybrid diversity
+###########################################################
+
+def make_hybrid_diversity_figure(pangenome_map, args, rng, low_diversity_cutoff=0.05):
+    global fig_count
+    print(f'Plotting Fig. {fig_count}...\n')
+
+    metadata = MetadataMap()
+    gene_diversity_table = pd.read_csv(f'{args.data_dir}gene_diversity_table.tsv', sep='\t', index_col=0)
+    syna_num_site_alleles = pd.read_csv(f'{args.data_dir}A_num_site_alleles_4D.tsv', sep='\t', index_col=0)
+    syna_num_site_alleles['num_snps'] = syna_num_site_alleles[['2', '3', '4']].sum(axis=1)
+    syna_num_site_alleles['piS'] = gene_diversity_table.loc[syna_num_site_alleles.index.values, 'A_pS_mean']
+    low_diversity_ogs = np.array(syna_num_site_alleles.loc[syna_num_site_alleles['fraction_polymorphic'] < low_diversity_cutoff, :].index)
+    high_diversity_ogs = np.array([o for o in syna_num_site_alleles.index if o not in low_diversity_ogs])
+    synbp_num_site_alleles= pd.read_csv(f'{args.data_dir}Bp_num_site_alleles_4D.tsv', sep='\t', index_col=0)
+    synbp_num_site_alleles['num_snps'] = synbp_num_site_alleles[['2', '3', '4']].sum(axis=1)
+    synbp_num_site_alleles['piS'] = gene_diversity_table.loc[synbp_num_site_alleles.index.values, 'Bp_pS_mean']
+    genomic_trough_table = pd.read_csv(f'{args.data_dir}genomic_trench_loci_annotations.tsv', sep='\t', index_col=0)
+
+    plot_genomic_trough_diversity(gene_diversity_table, genomic_trough_table, syna_num_site_alleles, synbp_num_site_alleles, low_diversity_ogs, rng, args)
+    A_backbone_piS = syna_num_site_alleles.loc[low_diversity_ogs, 'piS'].mean()
+    plot_alpha_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alleles, synbp_num_site_alleles, A_backbone_piS, rng, args, dx1=0.4)
+    plot_hybrid_diversity_comparison(pangenome_map, metadata, syna_num_site_alleles, synbp_num_site_alleles, A_backbone_piS, gene_diversity_table, genomic_trough_table, low_diversity_ogs, rng, args, dx1=0.4)
+
+
+
+###########################################################
+# Fig. 2-4, 6 panels: Gene genetic diversity
+###########################################################
 
 def make_genetic_diversity_panels(pangenome_map, args, low_diversity_cutoff=0.05):
     global fig_count
@@ -1663,6 +1711,9 @@ def plot_species_divergence_distribution(gene_diversity_table, syna_num_site_all
 
     fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
     ax = fig.add_subplot(111)
+    plot_species_divergence_distribution_axis(ax, gene_diversity_table, syna_num_site_alleles, synbp_num_site_alleles, control_loci)
+
+    '''
     ax.set_xlabel('synonymous divergence, $d_S$', fontsize=label_fs)
     ax.set_ylabel('orthogroups', fontsize=label_fs)
     ax.spines['right'].set_visible(False)
@@ -1671,11 +1722,25 @@ def plot_species_divergence_distribution(gene_diversity_table, syna_num_site_all
     dS = align_utils.calculate_divergence(gene_diversity_table['A-Bp_pS_mean'])
     ax.hist(dS, bins=100)
     ax.axvline(dc, lw=2, color='tab:red')
+    '''
+
     plt.tight_layout()
     #plt.savefig(f'{args.figures_dir}Panel{panel_count}_A-Bp_dS_distribution.pdf')
     plt.savefig(f'{args.figures_dir}fig{fig_count}_A-Bp_dS_distribution.pdf')
     plt.close()
     panel_count += 1
+
+
+def plot_species_divergence_distribution_axis(ax, gene_diversity_table, syna_num_site_alleles, synbp_num_site_alleles, control_loci, num_bins=20, label_fs=14, epsilon=2E-5, dc=0.2):
+    ax.set_xlabel('synonymous divergence, $d_S$', fontsize=label_fs)
+    ax.set_ylabel('orthogroups', fontsize=label_fs)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+    dS = align_utils.calculate_divergence(gene_diversity_table['A-Bp_pS_mean'])
+    ax.hist(dS, bins=100)
+    ax.axvline(dc, lw=2, color='tab:red')
+
 
 
 def plot_genomic_trough_diversity(gene_diversity_table, genomic_trough_table, syna_num_site_alleles, synbp_num_site_alleles, control_loci, rng, args, num_bins=20, label_fs=14, epsilon=2E-5, dc=0.15, bootstrap=False):
@@ -1965,6 +2030,156 @@ def plot_alpha_hybrid_gene_diversity(pangenome_map, metadata, syna_num_site_alle
     panel_count += 1
 
 
+def plot_hybrid_diversity_comparison(pangenome_map, metadata, syna_num_site_alleles, synbp_num_site_alleles, syna_mean_diversity, gene_diversity_table, genomic_trough_table, control_loci, rng, args, num_bins=20, label_fs=10, epsilon=2E-5, dc=0.15, bootstrap=False, x0=1, dx1=0.25, dx2=0.2, linscale=0.25, ms=5**2, lw=0.25):
+    x_ax_label = -0.15
+    y_ax_label = 1.05
+    gt_idx = genomic_trough_table.index.values
+
+    fig = plt.figure(figsize=(double_col_width, 0.6 * single_col_width))
+    ax = fig.add_subplot(131)
+    ax.text(x_ax_label, y_ax_label, 'A', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+    ax.set_xlim(0, 1)
+    ax.set_xscale('symlog', linthresh=epsilon, linscale=0.1)
+    #ax.set_xlabel('synonymous diversity, $\pi_S$', fontsize=label_fs)
+    ax.set_xlabel('Synonymous diversity, $\pi_S$', fontsize=label_fs)
+    ax.set_xticks([0, 1E-4, 1E-3, 1E-2, 1E-1, 1])
+    ax.minorticks_off()
+    ax.tick_params(axis='both', labelsize=label_fs)
+    #ax.set_ylabel('orthogroups', fontsize=label_fs)
+    ax.set_ylabel('Genes', fontsize=label_fs)
+    ax.axvline(1.25 * epsilon, ls='--', color='k', lw=1)
+
+    syna_gt_idx = [g for g in gt_idx if g in syna_num_site_alleles.index.values]
+    syna_control_og_list = [g for g in control_loci if (g not in syna_gt_idx) and (g in syna_num_site_alleles.index.values)]
+    syna_control_idx = rng.choice(syna_control_og_list, size=len(syna_gt_idx), replace=False)
+
+    x_bins = np.concatenate([[0], np.geomspace(epsilon, 7E-1, num_bins)])
+    syna_gt_piS = syna_num_site_alleles.loc[syna_gt_idx, 'piS']
+    syna_control_piS = syna_num_site_alleles.loc[syna_control_idx, 'piS']
+    ax.hist(syna_gt_piS, bins=x_bins, color='tab:purple', alpha=0.5, label=r'$\alpha$ troughs')
+    ax.hist(syna_control_piS, bins=x_bins, color='tab:orange', alpha=0.5, label=r'$\alpha$ backbone')
+
+    # Add control bootstrap
+    n = len(gt_idx)
+    n_control = 10000
+
+    if bootstrap:
+        pdf_control_idx = rng.choice(syna_control_og_list, size=n_control, replace=True)
+        syna_control_pdf = gene_diversity_table.loc[pdf_control_idx, 'A_pS_mean'] 
+        y_pdf, _ = np.histogram(syna_control_pdf, bins=x_bins)
+        y_pdf = np.concatenate([[y_pdf[0]], y_pdf])
+        ax.step(x_bins, n * y_pdf / n_control, lw=2.0, color='tab:orange', label=r'$\alpha$ backbone (boostrap)')
+
+    ax.legend(loc='upper right', frameon=False)
+
+    print(syna_num_site_alleles.loc[syna_gt_idx, 'piS'].mean(), syna_num_site_alleles.loc[syna_control_idx, 'piS'].mean())
+
+    synbp_gt_idx = [g for g in gt_idx if g in synbp_num_site_alleles.index.values]
+    synbp_control_og_list = [g for g in synbp_num_site_alleles.index.values if g not in synbp_gt_idx]
+    synbp_control_idx = rng.choice(synbp_control_og_list, size=len(synbp_gt_idx), replace=False)
+
+    ax = fig.add_subplot(132)
+    ax.text(x_ax_label, y_ax_label, 'B', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+    ax.set_xlim(0, 1)
+    ax.set_xscale('symlog', linthresh=epsilon, linscale=0.1)
+    #ax.set_xlabel('synonymous diversity, $\pi_S$', fontsize=label_fs)
+    ax.set_xlabel('Synonymous diversity, $\pi_S$', fontsize=label_fs)
+    ax.set_xticks([0, 1E-4, 1E-3, 1E-2, 1E-1, 1])
+    ax.set_ylabel('Genes', fontsize=label_fs)
+    ax.minorticks_off()
+    ax.tick_params(axis='both', labelsize=label_fs)
+    ax.axvline(1.25 * epsilon, ls='--', color='k', lw=1)
+
+    synbp_gt_piS = synbp_num_site_alleles.loc[synbp_gt_idx, 'piS'].values
+    synbp_control_piS = synbp_num_site_alleles.loc[synbp_control_idx, 'piS'].values
+    ax.hist(synbp_gt_piS, bins=x_bins, color='tab:purple', alpha=0.5, label=r'$\beta$ troughs')
+    ax.hist(synbp_control_piS, bins=x_bins, color='tab:blue', alpha=0.5, label=r'$\beta$ core')
+    ax.legend(loc='upper left', frameon=False)
+
+    if bootstrap:
+        pdf_control_idx = rng.choice(synbp_control_og_list, size=n_control, replace=True)
+        synbp_control_pdf = gene_diversity_table.loc[pdf_control_idx, 'Bp_pS_mean'] 
+        y_pdf, _ = np.histogram(synbp_control_pdf, bins=x_bins)
+        y_pdf = np.concatenate([[y_pdf[0]], y_pdf])
+        ax.step(x_bins, n * y_pdf / n_control, lw=2.0, color='tab:blue')
+        boostrap_ext = '_boostrap'
+    else:
+        boostrap_ext = ''
+
+    print(f'A piS: {np.mean(syna_gt_piS):.3f} (genomic troughs); {np.mean(syna_control_piS):.3f} (backbone)')
+    print(f'Bp piS: {np.mean(synbp_gt_piS):.3f} (genomic troughs); {np.mean(synbp_control_piS):.3f} (backbone)')
+    print('\n')
+
+    species_cluster_genomes = pd.read_csv(f'{args.data_dir}labeled_sequence_cluster_genomes.tsv', sep='\t', index_col=0)
+    syna_hybrid_donor_frequency_table, synbp_hybrid_donor_frequency_table = get_species_hybridization_tables(args)
+    sag_ids = pangenome_map.get_sag_ids()
+    species_sorted_sags = metadata.sort_sags(sag_ids, by='species')
+    colors_dict = {'A':'tab:orange', 'Bp':'tab:blue', 'C':'tab:green', 'O':'tab:purple'}
+
+    ax = fig.add_subplot(133)
+    ax.text(x_ax_label, y_ax_label, 'C', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+    ax.set_xticks([0, 1, 2, 3])
+    ax.set_xticklabels([r'$\beta$', r'$\beta \rightarrow \alpha$', r'$\gamma \leftrightarrow \alpha$', r'$X \rightarrow \alpha$'], fontsize=label_fs)
+    #ax.set_ylabel(r'synonymous diversity, $\pi_S$', fontsize=label_fs)
+    ax.set_ylabel(r'Synonymous diversity, $\pi_S$', fontsize=label_fs)
+    ax.set_yscale('symlog', linthresh=epsilon, linscale=linscale)
+    #ax.yaxis.set_label_position('right')
+    #ax.yaxis.tick_right()
+    ax.set_ylim(-epsilon, 9E-1)
+    #ax.set_yticks([0, 1E-4, 1E-3, 1E-2, 1E-1, 1])
+    ax.set_yticks([0, 1E-4, 1E-3, 1E-2, 1E-1])
+    ax.tick_params(axis='both', labelsize=label_fs)
+    ax.minorticks_off()
+    ax.axhline(syna_mean_diversity, lw=2, color=colors_dict['A'], alpha=0.5)
+    ax.axhline(epsilon, ls='--', color='k', lw=1)
+
+    counter = np.array([0, 0])
+    for hybrid_cluster in ['Bp', 'C', 'O']:
+        y_arr = []
+        yc_arr = []
+        for g in syna_hybrid_donor_frequency_table.loc[syna_hybrid_donor_frequency_table[hybrid_cluster] > 1, :].index:
+            locus_clusters = species_cluster_genomes.loc[g, species_sorted_sags['A']]
+            hybrid_cluster_sag_ids = locus_clusters[locus_clusters == hybrid_cluster].index.values
+            f_pdist = f'{args.pangenome_dir}pdist/{g}_cleaned_pS.dat'
+            pS = pickle.load(open(f_pdist, 'rb'))
+            pS_mapped = seq_utils.map_pdist_to_sags(pS, pangenome_map, False)
+            pS_hybrid = pS_mapped.loc[hybrid_cluster_sag_ids, hybrid_cluster_sag_ids]
+
+            pS_values = utils.get_matrix_triangle_values(pS_hybrid.values, k=1)
+            if len(pS_values) == 0:
+                continue # skip OGs w/o valid pS values 
+
+            y = np.mean(pS_values)
+            x = np.array([x0 - 1, x0]) + rng.uniform(-dx1 / 2, dx1 / 2, size=2)
+            ax.scatter(x[1], y, ms, marker='o', fc=colors_dict[hybrid_cluster], ec='w', lw=lw, alpha=0.6)
+            if (g in synbp_num_site_alleles.index.values) and (hybrid_cluster == 'Bp'):
+                yc = synbp_num_site_alleles.loc[g, 'piS']
+                ax.scatter(x[0], yc, ms, marker='s', fc=colors_dict[hybrid_cluster], ec='w', lw=lw, alpha=0.6)
+                ax.plot(x, [yc, y], c=colors_dict[hybrid_cluster], lw=0.75, alpha=0.3)
+                yc_arr.append(yc)
+            else:
+                pass
+            y_arr.append(y)
+
+            counter[0] += 1
+            if y < 1E-4:
+                counter[1] += 1
+
+        y_arr = np.array(y_arr)
+        print(f'{hybrid_cluster}->A hybrid gene diversity: {np.mean(y_arr):.3f} ({np.sum(y_arr < 1E-4)} out of {len(y_arr)} w/ piS < 1E-4)')
+        if hybrid_cluster == 'Bp':
+            yc_arr = np.array(yc_arr)
+            print(f'Bp hybrid gene diversity: {np.mean(yc_arr):.3f} ({np.sum(yc_arr < 1E-4)} out of {len(yc_arr)} w/ piS < 1E-4)')
+
+        x0 += 1
+
+
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}fig{fig_count}_hybrid_diversity.pdf')
+    plt.close()
+
+
+
 ###########################################################
 # Linkage figures
 ###########################################################
@@ -2005,7 +2220,7 @@ def calculate_random_gene_linkage(args, rng, cloud_dict, sites_ext='_all_sites',
     return random_gene_linkage
 
 
-def set_up_linkage_curve_axis(ax, xlim=(8E-1, 1E4), ylim=(5E-3, 1.5E0), linkage_metric='$\sigma_d^2$', ax_label='', ax_label_fs=14, xticks=[1, 1E1, 1E2, 1E3, 1E4], xlabel=r'separation, $x$', ylabel='linkage', x_ax_label=1E-1, yticks=[1E-2, 1E-1, 1]):
+def set_up_linkage_curve_axis(ax, xlim=(8E-1, 1E4), ylim=(5E-3, 1.5E0), linkage_metric='$\sigma_d^2$', ax_label='', ax_label_fs=14, xticks=[1, 1E1, 1E2, 1E3, 1E4], xlabel=r'Distance, $x$', ylabel='Linkage', x_ax_label=1E-1, yticks=[1E-2, 1E-1, 1]):
     ax.set_xlabel(xlabel, fontsize=14)
     ax.set_xscale('log')
     ax.set_xlim(xlim)
@@ -2121,7 +2336,7 @@ def calculate_locus_consensus_divergence(locus_aln, metadata):
     return locus_consensus_divergences
 
 
-def plot_consensus_divergence_loci_comparisons(ax, locus1_divergences, locus2_divergences, sag_ids, metadata, fig, label_size=14, legend_font_size=12, xlabel='16S', ylabel='whole-genome', xlim=None, ylim=None, xy_text=None, clean_borders=True, ax_label=None, tick_size=14):
+def plot_consensus_divergence_loci_comparisons(ax, locus1_divergences, locus2_divergences, sag_ids, metadata, fig, label_size=14, legend_font_size=12, xlabel='16S', ylabel='whole genome', xlim=None, ylim=None, xy_text=None, clean_borders=True, ax_label=None, tick_size=14):
     ax.set_xlabel(xlabel, fontsize=label_size)
     ax.set_ylabel(ylabel, fontsize=label_size)
 
@@ -2267,11 +2482,13 @@ if __name__ == '__main__':
     rng = np.random.default_rng(random_seed)
     pangenome_map = pg_utils.PangenomeMap(f_orthogroup_table=f_orthogroup_table)
     #make_genome_level_figure(pangenome_map, args, rng)
-    fig_count = 2
+    #fig_count = 2
     #make_linkage_panels(pangenome_map, args)
     fig_count = 3
     make_genetic_diversity_figure(pangenome_map, args)
+    make_gene_cluster_figure(pangenome_map, args)
     #make_genetic_diversity_panels(pangenome_map, args)
-    #make_gene_level_figure(pangenome_map, args, rng)
+    make_gene_level_figure(pangenome_map, args, rng)
+    make_hybrid_diversity_figure(pangenome_map, args, rng)
     #fig_count = 7
     #make_snp_level_panels(pangenome_map, args, rng, panel_label_fs=10)
