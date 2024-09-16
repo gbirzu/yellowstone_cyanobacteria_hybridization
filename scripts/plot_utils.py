@@ -13,7 +13,7 @@ import scipy.sparse as sparse
 import scipy.cluster.hierarchy as hclust
 import matplotlib.gridspec as gridspec
 import copy
-import scipy.stats as stats
+#import scipy.stats as stats
 from sklearn.neighbors import KernelDensity
 from ete3 import Tree, TreeStyle, TextFace, NodeStyle, Face, ClusterTree, ProfileFace
 from syn_homolog_map import SynHomologMap

@@ -15,6 +15,7 @@ import matplotlib.tri as tri
 import matplotlib.transforms as mtransforms
 import matplotlib.lines as mlines
 import matplotlib.patheffects as mpe
+import scipy.stats as stats
 from Bio.Align import MultipleSeqAlignment
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
@@ -312,8 +313,9 @@ def plot_linkage_decay(random_gene_linkage, metadata, cloud_dict, label_dict, co
     ax1 = fig.add_subplot(121)
     xlim = (0.8, 1E4)
     ylim = (5E-3, 1.5E0)
-    set_up_linkage_curve_axis(ax1, xlim=xlim, ylim=ylim, ax_label='', ax_label_fs=14, xticks=[1, 1E1, 1E2, 1E3], ylabel='linkage disequilibrium')
-    ax1.text(3E-1, 1.50 * ylim[1], 'A', fontweight='bold', fontsize=14, va='center')
+    set_up_linkage_curve_axis(ax1, xlim=xlim, ylim=ylim, ax_label='', ax_label_fs=14, xticks=[1, 1E1, 1E2, 1E3], ylabel='Linkage disequilibrium', clean_borders=True)
+    #ax1.text(3E-1, 1.50 * ylim[1], 'A', fontweight='bold', fontsize=14, va='center')
+    ax1.text(-0.1, 1.05, 'A', transform=ax1.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
     rho_fit = {'A':0.03, 'Bp':0.12}
     theta = 0.03
     lmax = 2000
@@ -345,12 +347,26 @@ def plot_linkage_decay(random_gene_linkage, metadata, cloud_dict, label_dict, co
             ax1.scatter(7.0E3, linkage_avg[0], s=20, fc='none', ec=color_dict[species], marker=marker_dict[species])
             ax1.scatter(7.0E3, control_avg[0], s=40, fc='none', ec=color_dict[species], marker='_', lw=2) # plot control
 
-    ax1.axvline(5E3, ls='--', c='k')
+    ax1.axvline(3E3, ls='--', c='k')
     ax1.legend(fontsize=10, frameon=False)
 
 
     ylim = (0, 0.02)
     ax2 = fig.add_subplot(122)
+
+
+    d_arr_raw, core_og_ids, sag_ids = pickle.load(open(f'{args.data_dir}pdist_array.dat', 'rb'))
+    rrna_aln = read_rrna_alignment(pangenome_map, args)
+    rrna_pdist = align_utils.calculate_fast_pairwise_divergence(rrna_aln)
+
+    d_idx = np.arange(len(sag_ids))[np.isin(sag_ids, rrna_pdist.index.values)]
+    d_arr = d_arr_raw[:, d_idx, :][:, :, d_idx]
+    wg_pdist = np.nanmean(d_arr, axis=0)
+
+    rrna_sag_ids = sag_ids[np.isin(sag_ids, rrna_pdist.index.values)] 
+    rrna_pdist = rrna_pdist.loc[rrna_sag_ids, rrna_sag_ids]
+
+    '''
     f_divergences = f'{args.data_dir}core_ogs_species_consensus_divergence_table.tsv'
     consensus_divergence_table = pd.read_csv(f_divergences, sep='\t', index_col=0)
     consensus_divergence_table['average'] = consensus_divergence_table.mean(axis=1)
@@ -362,16 +378,34 @@ def plot_linkage_decay(random_gene_linkage, metadata, cloud_dict, label_dict, co
     x = rrna_consensus_divergences.values
     y = consensus_divergence_table.loc[rrna_sag_ids, 'average'].values
     plot_consensus_divergence_loci_comparisons(ax2, x, y, rrna_sag_ids, metadata, fig, ax_label='')
-    ax2.set_xticks([0, 0.005, 0.01])
-    ax2.set_yticks([0, 0.005, 0.01, 0.015])
-    ax2.text(-0.002, 1.00 * ylim[1], 'B', fontweight='bold', fontsize=14, va='center')
+    '''
+    #x = utils.get_matrix_triangle_values(rrna_pdist.values, k=1)
+    #y = utils.get_matrix_triangle_values(rrna_pdist.values, k=1)
+    #plot_consensus_divergence_loci_comparisons(ax2, x, y, rrna_sag_ids, metadata, fig)
 
+    species_sorted_sag_ids = metadata.sort_sags(rrna_sag_ids, by='species')
+    for species in ['A', 'Bp']:
+        species_sag_ids = np.array([s for s in rrna_sag_ids if s in species_sorted_sag_ids[species]])
+        species_rrna_pdist = rrna_pdist.loc[species_sag_ids, species_sag_ids].values
+        species_idx = np.arange(len(rrna_sag_ids))[np.isin(rrna_sag_ids, species_sag_ids)]
+        species_wg_pdist = wg_pdist[species_idx, :][:, species_idx]
+
+        if species == 'A':
+            plot_pdist_loci_comparisons(ax2, species_rrna_pdist, species_wg_pdist, rrna_sag_ids, metadata, fig, alpha=0.2)
+        else:
+            plot_pdist_loci_comparisons(ax2, species_rrna_pdist, species_wg_pdist, rrna_sag_ids, metadata, fig, color='tab:blue', xy_species_text=(0.005, 0.025), alpha=0.2)
+
+    ax2.set_xticks([0, 0.005, 0.01])
+    #ax2.set_yticks([0, 0.005, 0.01, 0.015])
+    ax2.set_yticks([0, 0.01, 0.02, 0.03, 0.04])
+    #ax2.text(-0.002, 1.00 * ylim[1], 'B', fontweight='bold', fontsize=14, va='center')
+    ax2.text(-0.1, 1.05, 'B', transform=ax2.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
     plt.tight_layout()
     plt.savefig(f'{args.figures_dir}fig{fig_count}_linkage_decay.pdf')
     fig_count += 1
 
 
-def set_up_linkage_curve_axis(ax, xlim=(8E-1, 1E4), ylim=(5E-3, 1.5E0), linkage_metric='$\sigma_d^2$', ax_label='', ax_label_fs=14, xticks=[1, 1E1, 1E2, 1E3, 1E4], xlabel=r'Distance, $x$', ylabel='Linkage', x_ax_label=1E-1, yticks=[1E-2, 1E-1, 1]):
+def set_up_linkage_curve_axis(ax, xlim=(8E-1, 1E4), ylim=(5E-3, 1.5E0), linkage_metric='$\sigma_d^2$', ax_label='', ax_label_fs=14, xticks=[1, 1E1, 1E2, 1E3, 1E4], xlabel=r'Distance, $x$', ylabel='Linkage', x_ax_label=1E-1, yticks=[1E-2, 1E-1, 1], clean_borders=False):
     ax.set_xlabel(xlabel, fontsize=14)
     ax.set_xscale('log')
     ax.set_xlim(xlim)
@@ -384,6 +418,10 @@ def set_up_linkage_curve_axis(ax, xlim=(8E-1, 1E4), ylim=(5E-3, 1.5E0), linkage_
     ax.tick_params(axis='x', labelsize=14)
     ax.tick_params(axis='y', labelsize=14)
     ax.text(x_ax_label, 1.05 * ylim[1], ax_label, fontweight='bold', fontsize=ax_label_fs)
+
+    if clean_borders:
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
 
 
 def average_linkage_curves(linkage_results, metric='sigmad_sq', min_sample_size=20, average_length_fraction=1, x_max=5000, min_depth=1000):
@@ -531,6 +569,40 @@ def plot_consensus_divergence_loci_comparisons(ax, locus1_divergences, locus2_di
         trans = mtransforms.ScaledTranslation(-20/72, 7/72, fig.dpi_scale_trans)
         ax.text(-0.02, 1.02, ax_label, transform=ax.transAxes + trans, fontsize=14, fontweight='bold', va='bottom')
 
+    
+def plot_pdist_loci_comparisons(ax, locus1_pdist, locus2_pdist, rrna_sag_ids, metadata, fig, label_size=14, legend_font_size=12, xlabel='16S divergence', ylabel='Genome divergence', xlim=None, ylim=None, xy_text=None, clean_borders=True, ax_label=None, tick_size=14, color='tab:orange', xy_species_text = (0.004, 0.005), alpha=0.4):
+    ax.set_xlabel(xlabel, fontsize=label_size)
+    ax.set_ylabel(ylabel, fontsize=label_size)
+
+    x = utils.get_matrix_triangle_values(locus1_pdist, k=1).astype(float)
+    y = utils.get_matrix_triangle_values(locus2_pdist, k=1).astype(float)
+    print(x, len(x), type(x))
+    print(y, len(y), type(y))
+
+    ax.scatter(x, y, s=5, fc=color, ec='none', alpha=alpha)
+
+    slope, intercept, r_close, pvalue_close, stderr = stats.linregress(x, y)
+    xfit = np.array([0, 1.05 * np.max(x)])
+    ax.plot(xfit, intercept + slope * xfit, c=color, alpha=alpha+0.4)
+    ax.annotate('$R=' + f'{r_close:.2f}$', xy_species_text, fontsize=14, color=color)
+
+    pearsonr = np.corrcoef(x, y)
+    print(f'16S vs whole-genome divergence correlation:')
+    print(pearsonr)
+    print('\n')
+
+    if xlim is None:
+        xlim = (-0.0005, 1.1 * np.max(locus1_pdist))
+    ax.set_xlim(xlim)
+    if ylim is None:
+        ylim = (0, 1.1 * np.max(locus2_pdist))
+    ax.set_ylim(ylim)
+    ax.tick_params(labelsize=tick_size)
+
+    if clean_borders:
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
 
 ###########################################################
 # Fig. 3: gene diversity figure
@@ -550,7 +622,7 @@ def make_genetic_diversity_figure(pangenome_map, args, low_diversity_cutoff=0.05
     # Diversity along genome
     ax = plt.subplot(gspec[0, :])
     ax.text(-0.05, 1.05, 'A', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
-    plot_diversity_along_genome_axis(ax, gene_diversity_table, metadata, xlim=(0, 3.05), ylim=(5E-4, 9E-1))
+    plot_diversity_along_genome_axis(ax, gene_diversity_table, metadata, xlim=(0, 3.05), ylim=(5E-4, 9E-1), clean_borders=True)
     ax.set_yticks([1E-3, 1E-2, 1E-1])
 
     # A SNP polymorphism
@@ -610,15 +682,18 @@ def make_genetic_diversity_figure(pangenome_map, args, low_diversity_cutoff=0.05
     fig_count += 1
 
 
-def plot_diversity_along_genome_axis(ax, gene_diversity_table, metadata, lw=1.0, xlim=(0, 3.25), ylim=(1E-3, 3E-1)):
+def plot_diversity_along_genome_axis(ax, gene_diversity_table, metadata, lw=1.0, xlim=(0, 3.25), ylim=(1E-3, 3E-1), clean_borders=False):
     label_dict = {'A':r'$\alpha$', 'Bp':r'$\beta$'}
     for i, species in enumerate(['Bp', 'A']):
         plot_species_diversity_along_genome(ax, gene_diversity_table, metadata, species=species, label=label_dict[species], alpha=0.9, lw=lw, label_fs=13, std=True, fill_alpha=0.7)
     ax.set_xlabel('Genome position (Mb)', fontsize=13)
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    ax.legend(fontsize=10, frameon=False)
+    ax.legend(fontsize=10, frameon=False, borderaxespad=0.0)
 
+    if clean_borders:
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
 
 def plot_species_diversity_along_genome(ax, gene_diversity_table, metadata, species='A', dx=2, w=5, label='', label_fs=14, lw=1.5, alpha=1.0, std=False, minmax=False, fill_alpha=0.7, plot_kwargs={}):
     if species == 'A':
@@ -1534,6 +1609,7 @@ def make_snp_level_panels(pangenome_map, args, rng, fig_dpi=1000, panel_label_fs
     # Plot block linkage
     fig = plt.figure(figsize=(double_col_width / 3, double_col_width / 3.5))
     ax = fig.add_subplot(111)
+    ax.text(-0.2, 1.05, 'D', transform=ax.transAxes, fontsize=panel_label_fs, fontweight='bold', va='center', usetex=False)
     plot_block_haplotype_linkage(ax, syna_block_haplotypes, synbp_block_haplotypes, label_size=12, legend_size=7, xticks=[1E-4, 1E-2, 1])
     ax.set_ylim(2E-6, 1)
     ax.set_ylim(0, 0.08)
@@ -1922,7 +1998,7 @@ def calculate_rsq(block_haplotypes, randomize=False, rng=None):
 if __name__ == '__main__':
     # Default variables
     alignment_dir = '../results/single-cell/reference_alignment/'
-    figures_dir = '../figures/main_text/v4/'
+    figures_dir = '../figures/main_text/v5/'
     pangenome_dir = '../results/single-cell/sscs_pangenome_v2/'
     results_dir = '../results/single-cell/'
     data_dir = '../results/single-cell/main_figures_data/'
