@@ -14,6 +14,8 @@ from metadata_map import MetadataMap
 from analyze_hitchhiking_candidates import add_gene_id_map, map_ssog_id
 from plot_utils import *
 
+fig_count = 1
+
 def get_genomic_trenches_diversity_stats(og_stats, args, pi_cutoff=0.05, length_cutoff=200, min_num_seqs=10, make_figures=True):
     index_filter = (og_stats['A_seqs'] >= min_num_seqs) & (og_stats['Bp_seqs'] >= min_num_seqs) & (og_stats['avg_length'] > length_cutoff)
     filtered_stats_table = og_stats.loc[index_filter, :]
@@ -690,6 +692,79 @@ def plot_species_diversity_along_genome(species_cluster_genomes, pangenome_map, 
     print(species_divergence_table.loc[typical_locus_filter, :])
 
 
+def analyze_pairwise_divergences(pangenome_map, args, label_fs=14, num_bins=50, ms=4, legend_fs=12):
+    global fig_count
+    print(f'Plotting sample variation supplemental figures...')
+
+    # Calculate A backbone pdist
+    metadata = MetadataMap()
+
+    # Get A backbone OGs
+    low_diversity_cutoff = 0.05
+    syna_num_site_alleles = pd.read_csv(f'{args.results_dir}main_figures_data/A_num_site_alleles_4D.tsv', sep='\t', index_col=0)
+    low_diversity_ogs = np.array(syna_num_site_alleles.loc[syna_num_site_alleles['fraction_polymorphic'] < low_diversity_cutoff, :].index)
+    high_diversity_ogs = np.array([o for o in syna_num_site_alleles.index if o not in low_diversity_ogs])
+
+    # Calculate backbone pdist
+    #d_arr_raw, core_og_ids, sag_ids = pickle.load(open(f'{args.results_dir}main_figures_data/pdist_array.dat', 'rb'))
+    d_arr_raw, core_og_ids, sag_ids = pickle.load(open(f'{args.results_dir}main_figures_data/pS_array.dat', 'rb'))
+    syna_backbone_idx = np.array([i for i in range(d_arr_raw.shape[0]) if core_og_ids[i] in low_diversity_ogs])
+    syna_hybrid_idx = np.array([i for i in range(d_arr_raw.shape[0]) if core_og_ids[i] not in low_diversity_ogs])
+    d_backbone_arr = d_arr_raw[syna_backbone_idx]
+    d_hybrid_arr = d_arr_raw[syna_hybrid_idx]
+
+    backbone_pdist = pd.DataFrame(np.nanmean(d_backbone_arr, axis=0), index=sag_ids, columns=sag_ids)
+    hybrid_pdist = pd.DataFrame(np.nanmean(d_hybrid_arr, axis=0), index=sag_ids, columns=sag_ids)
+    genome_pdist = pd.DataFrame(np.nanmean(d_arr_raw, axis=0), index=sag_ids, columns=sag_ids)
+    species_sorted_sag_ids = metadata.sort_sags(sag_ids, by='species')
+    syna_sag_ids = np.array(species_sorted_sag_ids['A'])
+    syna_sorted_sag_ids = metadata.sort_sags(syna_sag_ids, by='location')
+
+    syna_backbone_pdist = backbone_pdist.loc[syna_sag_ids, syna_sag_ids]
+    syna_hybrid_pdist = hybrid_pdist.loc[syna_sag_ids, syna_sag_ids]
+    syna_genome_pdist = genome_pdist.loc[syna_sag_ids, syna_sag_ids]
+
+    # Alpha low-diversity comparison between springs
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel('Mean pair divergence, $\pi_{ij}$', fontsize=label_fs)
+    ax.set_xscale('log')
+    ax.set_ylabel('Reverse cumulative', fontsize=label_fs)
+
+    xlim = (1E-4, 2E-1)
+    x_bins = np.geomspace(*xlim, num_bins)
+
+    os_sag_ids = syna_sorted_sag_ids['OS']
+    markers = ['o', 's', 'D']
+    labels = ['backbone', 'hybrid', 'whole-genome']
+    for i, segment_pdist in enumerate([syna_backbone_pdist, syna_hybrid_pdist, syna_genome_pdist]):
+        pdist_values = utils.get_matrix_triangle_values(segment_pdist.loc[os_sag_ids, os_sag_ids].values, k=1)
+        y = np.array([np.sum(pdist_values > x) / len(pdist_values) for x in x_bins])
+        ax.plot(x_bins, y, f'-{markers[i]}', lw=1, ms=ms, alpha=0.5, mfc='none', label=f'{labels[i]}')
+
+    ax.legend(frameon=False, fontsize=legend_fs)
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}S{fig_count}_alpha_os_pdist_hist.pdf')
+    plt.close()
+    fig_count += 1
+
+    os_idx = np.array([i for i in range(d_arr_raw.shape[1]) if sag_ids[i] in os_sag_ids])
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel('Nucleotide diversity')
+    ax.set_xscale('log')
+    ax.set_ylabel('Density')
+    for i, idx in enumerate([syna_backbone_idx, syna_hybrid_idx]):
+        pi_values = np.nanmean(d_arr_raw[idx][:, os_idx, :][:, :, os_idx], axis=(1, 2))
+        ax.hist(pi_values, bins=x_bins, lw=2, histtype='step', label=f'{labels[i]}')
+        print(pi_values)
+    ax.legend(frameon=False, fontsize=legend_fs)
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}S{fig_count}_alpha_genome_pi_hist.pdf')
+    plt.close()
+    fig_count += 1
+
+
 
 if __name__ == '__main__':
     # Default parameters
@@ -721,6 +796,7 @@ if __name__ == '__main__':
     pangenome_map = PangenomeMap(f_orthogroup_table=args.orthogroup_table)
     metadata = MetadataMap()
 
+    analyze_pairwise_divergences(pangenome_map, args, legend_fs=10)
 
     '''
     og_stats = pd.read_csv(args.diversity_stats_table, sep='\t', index_col=0)
@@ -759,6 +835,7 @@ if __name__ == '__main__':
     make_diversity_comparison_figures(genomic_trenches_stats, control_loci_stats, og_table, args)
     '''
 
+    '''
     og_table = pangenome_map.og_table
     og_stats = pd.read_csv(args.diversity_stats_table, sep='\t', index_col=0)
     genomic_trench_loci_file = f'{args.output_dir}genomic_trench_loci.txt'
@@ -789,7 +866,6 @@ if __name__ == '__main__':
     genomic_trench_loci_table.to_csv(f'{args.output_dir}genomic_trench_loci_annotations.tsv', sep='\t')
 
 
-    '''
     genomic_trenches_stats = og_stats.loc[genomic_trenches_ogs, :]
     print(genomic_trenches_stats.loc[genomic_trenches_ogs, :], len(genomic_trenches_ogs))
     print(f'Control OG IDs: {control_loci_ogs}')

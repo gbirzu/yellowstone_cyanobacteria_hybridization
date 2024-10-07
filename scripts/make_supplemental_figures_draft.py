@@ -61,6 +61,7 @@ def make_genome_clusters_figures(pangenome_map, args, cloud_radius=0.1, fig_coun
     plt.savefig(f'{args.figures_dir}S{fig_count}_gene_triplet_fingerprints.pdf')
     fig_count += 1
 
+    # Plot 16S tree
     plot_16s_tree(pangenome_map, metadata, args, fig_count=fig_count)
     fig_count += 1
 

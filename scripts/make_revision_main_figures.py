@@ -279,12 +279,13 @@ def make_linkage_panels(pangenome_map, args, avg_length_fraction=0.75, ms=5, low
     marker_dict = {'A':'o', 'Bp':'s', 'Bp_subsampled':'x', 'population':'v'}
     rng = np.random.default_rng(args.random_seed)
     random_gene_linkage = calculate_random_gene_linkage(args, rng, cloud_dict)
+    #random_gene_linkage = get_random_gene_linkage_results(args, rng, cloud_dict)
     metadata = MetadataMap()
     plot_linkage_decay(random_gene_linkage, metadata, cloud_dict, label_dict, color_dict, marker_dict, args, avg_length_fraction=avg_length_fraction)
     print_break()
 
 
-def calculate_random_gene_linkage(args, rng, cloud_dict, sites_ext='_all_sites', min_sample_size=20, min_coverage=0.9, sample_size=1000):
+def calculate_random_gene_linkage(args, rng, cloud_dict, sites_ext='_all_sites', min_sample_size=20, sample_size=1000):
     random_gene_linkage = {}
     for species in ['A', 'Bp', 'Bp_subsampled', 'population']:
         c = cloud_dict[species]
@@ -293,6 +294,7 @@ def calculate_random_gene_linkage(args, rng, cloud_dict, sites_ext='_all_sites',
         else:
             gene_pair_results = pickle.load(open(f'{args.linkage_dir}sscs_core_ogs_cleaned_{species}_gene_pair_linkage{sites_ext}.dat', 'rb'))
 
+        '''
         gene_pair_linkage = gene_pair_results['sigmad_sq']
         sample_sizes = gene_pair_results['sample_sizes']
 
@@ -302,8 +304,23 @@ def calculate_random_gene_linkage(args, rng, cloud_dict, sites_ext='_all_sites',
         random_sample_idx = rng.choice(len(g1_idx), size=sample_size, replace=False)
         gene_pair_array = np.array([og_ids[g1_idx[random_sample_idx]], og_ids[g2_idx[random_sample_idx]]]).T
         random_gene_linkage[species] = (np.mean(gene_pair_linkage.values[g1_idx, g2_idx]), gene_pair_array)
+        '''
+        mean_linkage, gene_pair_array = calculate_random_gene_linkage_values(gene_pair_results, rng, sample_size, min_sample_size)
+        random_gene_linkage[species] = (mean_linkage, gene_pair_array)
 
     return random_gene_linkage
+
+def calculate_random_gene_linkage_values(gene_pair_results, rng, sample_size, min_sample_size):
+    gene_pair_linkage = gene_pair_results['sigmad_sq']
+    sample_sizes = gene_pair_results['sample_sizes']
+
+    # Draw random gene pairs
+    g1_idx, g2_idx = np.where((sample_sizes.values >= min_sample_size) & (gene_pair_linkage.notna().values))
+    og_ids = sample_sizes.index.values
+    random_sample_idx = rng.choice(len(g1_idx), size=sample_size, replace=False)
+    gene_pair_array = np.array([og_ids[g1_idx[random_sample_idx]], og_ids[g2_idx[random_sample_idx]]]).T
+
+    return np.mean(gene_pair_linkage.values[g1_idx, g2_idx]), gene_pair_array
 
 
 def plot_linkage_decay(random_gene_linkage, metadata, cloud_dict, label_dict, color_dict, marker_dict, args, avg_length_fraction=0.75):
