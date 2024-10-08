@@ -375,6 +375,57 @@ def test_block_finder(args):
 
     print(block_stats.iloc[0, :])
 
+def make_linkage_block_tables(input_files, sampled_sag_ids, species_sorted_sags, pangenome_map, metadata, out_sample_sag_ids, species, output_file, verbose=False):
+    block_stats_tables = []
+    coarse_grained_genomes = []
+    for f_aln in input_files:
+        og_id = read_og_id_from_fname(f_aln)
+        block_stats, haplotype_clustered_genomes = summarize_block_stats_and_cluster_genomes(f_aln, og_id, sampled_sag_ids, pangenome_map, metadata, out_sample_sag_ids=out_sample_sag_ids, consensus_id_head=f'{og_id}_{species}_consensus')
+        block_stats_tables.append(block_stats)
+        coarse_grained_genomes.append(haplotype_clustered_genomes.loc[species_sorted_sags[species], :])
+
+        if verbose:
+            print(og_id, block_stats, '\n')
+
+    # Save results
+    merged_block_stats = pd.concat(block_stats_tables, ignore_index=True)
+    f_block_stats = output_file.replace('.tsv', '_block_stats.tsv')
+    merged_block_stats.to_csv(f_block_stats, sep='\t', index=False)
+
+    block_haplotypes_df = pd.concat(coarse_grained_genomes, axis=1)
+    f_block_haplotypes = output_file.replace('.tsv', '_block_haplotypes.tsv')
+    block_haplotypes_df.to_csv(f_block_haplotypes, sep='\t')
+
+
+def summarize_block_stats_and_cluster_genomes(f_aln, og_id, sampled_sag_ids, pangenome_map, metadata, out_sample_sag_ids=None, consensus_id_head='consensus', 
+        main_cloud_cutoff=0.05, snp_frequency_cutoff=3, rsq_min=0.99999, min_block_length=5, match_cutoff=1):
+    aln = align_utils.read_main_cloud_alignment(f_aln, pangenome_map, metadata, dc_dict={'A':main_cloud_cutoff, 'Bp':main_cloud_cutoff, 'C':0.})
+    species_gene_ids = pangenome_map.get_og_gene_ids(og_id, sag_ids=sampled_sag_ids)
+    linkage_blocks, x_species_snps = find_linkage_blocks(aln, species_gene_ids, snp_frequency_cutoff=snp_frequency_cutoff, rsq_min=rsq_min, min_block_length=min_block_length)
+
+    # Construct haplotype block alignments
+    aln_species = align_utils.get_subsample_alignment(aln, species_gene_ids)
+    if out_sample_sag_ids is None:
+        sag_ids = pangenome_map.get_sag_ids()
+        out_sample_sag_ids = sag_ids[~np.isin(sag_ids, sampled_sag_ids)]
+    out_sample_gene_ids = pangenome_map.get_og_gene_ids(og_id, sag_ids=out_sample_sag_ids)
+    aln_out_sample = align_utils.get_subsample_alignment(aln, out_sample_gene_ids)
+
+    # Make consensus alignment for other species
+    out_sample_species_sags = metadata.sort_sags(out_sample_sag_ids, by='species')
+    consensus_list = []
+    for species in ['A', 'Bp', 'C']:
+        out_sample_gene_ids = pangenome_map.get_og_gene_ids(og_id, sag_ids=out_sample_species_sags[species])
+        aln_out_sample_species = align_utils.get_subsample_alignment(aln, out_sample_gene_ids)
+        if len(aln_out_sample_species) > 0:
+            consensus_seq_arr = seq_utils.get_consensus_seq(np.array(aln_out_sample_species), seq_type='nucl')
+            consensus_list.append(SeqRecord(Seq(''.join(consensus_seq_arr)), id=f'{species}_main_cloud_consensus', description=''))
+    aln_consensus = MultipleSeqAlignment(consensus_list)
+
+    block_stats, haplotype_clustered_genomes = make_block_summary_tables(linkage_blocks, aln_species, x_species_snps, aln_out_sample, og_id, pangenome_map, metadata, snp_frequency_cutoff, aln_consensus=aln_consensus, donor_match_cutoff=match_cutoff, consensus_id_head=consensus_id_head)
+    
+    return block_stats, haplotype_clustered_genomes
+
 
 if __name__ == '__main__':
     pangenome_dir = '../results/single-cell/sscs_pangenome/'
@@ -438,6 +489,7 @@ if __name__ == '__main__':
         sag_ids = pangenome_map.get_sag_ids()
         species_sorted_sags = metadata.sort_sags(sag_ids, by='species')
 
+        #make_linkage_block_tables(input_files, sampled_sag_ids, pangenome_map, metadata, out_sample_sag_ids, args.species, args.output_file)
         if args.get_linkage_run_lengths:
             run_lengths = []
             for f_aln in input_files:
@@ -468,5 +520,4 @@ if __name__ == '__main__':
             block_haplotypes_df = pd.concat(coarse_grained_genomes, axis=1)
             f_block_haplotypes = args.output_file.replace('.tsv', '_block_haplotypes.tsv')
             block_haplotypes_df.to_csv(f_block_haplotypes, sep='\t')
-
 

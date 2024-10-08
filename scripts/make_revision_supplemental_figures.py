@@ -1057,82 +1057,66 @@ def make_sample_variation_figures(pangenome_map, args, label_fs=14, num_bins=50,
     # Simple hybrids per sample
     species_cluster_genomes = pd.read_csv(f'{args.results_dir}hybridization/labeled_sequence_cluster_genomes.tsv', sep='\t', index_col=0)
     transfer_type_distribution = calculate_hybridization_spectrum(species_cluster_genomes, pangenome_map, metadata)
-    plot_hybridization_spectra(transfer_type_distribution, pangenome_map, metadata, args)
+    plot_hybridization_spectra(transfer_type_distribution, pangenome_map, metadata, args, savefig=f'{args.figures_dir}S{fig_count}_simple_hybrids_by_sample.pdf')
+    fig_count += 1
 
     main_figs.print_break()
 
 
-def plot_hybridization_spectra(transfer_type_distribution, pangenome_map, metadata, args):
+def plot_hybridization_spectra(transfer_type_distribution, pangenome_map, metadata, args, savefig):
     sag_ids = pangenome_map.get_sag_ids()
     sample_sorted_sags = metadata.sort_sags(sag_ids, by='sample')
     sample_ids = np.sort(list(sample_sorted_sags.keys()))
     sag_species = ['A', 'Bp', 'C']
     all_transfer_cols = ['Bp->A', 'C->A', 'O->A', 'total->A', 'A->Bp', 'C->Bp', 'O->Bp', 'total->Bp']
-
+    donor_label_dict = {'A':r'$\alpha$', 'Bp':r'$\beta$', 'C':r'$\gamma$', 'O':'X', 'total':'All'}
+    #transfer_label = f'{donor_label_dict[s]}$\\rightarrow${donor_label_dict[species]}'
 
     # Plot species composition by sample
+    ax_labels = ['A', 'B']
     line_styles = ['-o', '--s', '-.x', ':D']
     colors = ['magenta', 'cyan']
     x = np.arange(3)
 
-    for host in ['A', 'Bp']:
+    fig = plt.figure(figsize=(double_col_width, 0.8 * single_col_width))
+
+    for i, host in enumerate(['A', 'Bp']):
         transfer_cols = [col for col in all_transfer_cols if f'->{host}' in col]
         x = np.arange(len(transfer_cols))
-        fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
-        ax = fig.add_subplot(111)
+        ax = fig.add_subplot(1, 2, i + 1)
         ax.set_xticks(x)
-        #ax.set_xlim(-0.2, 3)
-        #ax.set_xticklabels([s.replace('O', 'X').replace('Bp', 'B') for s in allele_transfers], fontsize=14)
-        ax.set_xticklabels([s.replace('O', 'X').replace('Bp', 'B') for s in transfer_cols], fontsize=14)
-        ax.set_ylabel('number of transfers', fontsize=14)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
+        # Make tick labels
+        xticklabels = []
+        for c in transfer_cols:
+            d, h = c.split('->')
+            xticklabels.append(f'{donor_label_dict[d]}$\\rightarrow${donor_label_dict[h]}')
+        ax.set_xticklabels(xticklabels, fontsize=14)
+
+        if i == 0:
+            ax.set_ylabel('Simple hybrid transfers', fontsize=14)
         ax.set_ylim(-0.9, 1.2 * np.max(transfer_type_distribution[transfer_cols].values))
         #ax.set_ylim(-0.9, 1.2 * np.max(transfer_type_distribution[allele_transfers].values))
 
-        for i, sample in enumerate(sample_ids):
+        for j, sample in enumerate(sample_ids):
             #y = transfer_type_distribution.loc[sample, allele_transfers].values
             y = transfer_type_distribution.loc[sample, transfer_cols].values
-            line_idx = i % 4
-            color_idx = i // 4
+            line_idx = j % 4
+            color_idx = j // 4
             ax.plot(x, y, line_styles[line_idx], color=colors[color_idx], ms=4, label=sample)
 
-        ax.legend(ncol=2, fontsize=8)
-        plt.tight_layout()
-        plt.savefig(f'{args.figures_dir}{host}_sample_hybridization_spectrum.pdf')
-        plt.close()
+        ax.text(-0.2, 1.05, ax_labels[i], transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+        ax.legend(ncol=2, fontsize=8, frameon=False)
 
+    plt.tight_layout()
+    plt.savefig(savefig)
+    plt.close()
 
-        # Plot normalized transfer types
-        fig = plt.figure(figsize=(double_col_width, 0.8 * single_col_width))
-        ax = fig.add_subplot(111)
-        ax.set_xticks(x)
-        #ax.set_xticklabels([s.replace('O', 'X').replace('Bp', 'B') for s in allele_transfers], fontsize=14)
-        ax.set_xticklabels([s.replace('O', 'X').replace('Bp', 'B') for s in transfer_cols], fontsize=14)
-        ax.set_ylabel('number of transfers', fontsize=14)
+    #plt.savefig(f'{args.figures_dir}S{fig_count}_simple_hybrids_by_sample.pdf')
+    #plt.close()
 
-        for i, sample in enumerate(sample_ids):
-            n = transfer_type_distribution.loc[sample, sag_species].replace(0, 0.5).values
-            #y = transfer_type_distribution.loc[sample, allele_transfers].values
-            y = transfer_type_distribution.loc[sample, transfer_cols].values
-
-            # Scale by product of abundances of species involved; use 1 for X transfers
-            if host == 'A':
-                y[0] /= n[0] * n[1]
-                y[1] /= n[0] * n[2]
-                y[2] /= n[0]
-                y[3] /= n[0]
-            elif host == 'Bp':
-                y[0] /= n[1] * n[0]
-                y[1] /= n[1] * n[2]
-                y[2] /= n[1]
-                y[3] /= n[1]
-            line_idx = i % 4
-            color_idx = i // 4
-            ax.plot(x, y, line_styles[line_idx], color=colors[color_idx], ms=3, label=sample)
-
-        ax.legend(ncol=2, fontsize=8)
-        plt.tight_layout()
-        plt.savefig(f'{args.figures_dir}{host}_sample_hybridization_spectrum_corrected.pdf')
-        plt.close()
 
 
 def calculate_hybridization_spectrum(species_cluster_genomes, pangenome_map, metadata):

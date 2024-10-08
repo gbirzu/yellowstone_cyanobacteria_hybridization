@@ -1,28 +1,17 @@
 import argparse
 import numpy as np
-import pandas as pd 
+import pandas as pd
 import pickle
 import glob
 import os
 import utils
 import seq_processing_utils as seq_utils
 import alignment_tools as align_utils
-import matplotlib.pyplot as plt
 import pangenome_utils as pg_utils
-import plot_linkage_figures as plt_linkage
-import matplotlib.tri as tri
-import matplotlib.transforms as mtransforms
-import matplotlib.lines as mlines
-import matplotlib.patheffects as mpe
+import find_linkage_blocks as snp_blocks
 from Bio.Align import MultipleSeqAlignment
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 from metadata_map import MetadataMap
 from analyze_metagenome_reads import strip_sample_id
-from plot_utils import *
-
-mpl.rcParams['text.usetex'] = True
-plt.rc('text.latex', preamble=r'\usepackage{amsmath}')
 
 
 ###########################################################
@@ -36,7 +25,7 @@ def make_gene_tables(pangenome_map, args, dS_trough=0.2):
     pdist_dir = f'{args.pangenome_dir}pdist/'
     gene_diversity_table = make_gene_nucleotide_diversity_table(pangenome_map, species_cluster_genomes, metadata, pdist_dir)
     gene_diversity_table.to_csv(f'{args.output_dir}gene_diversity_table.tsv', sep='\t')
-    
+
 
     og_table = pangenome_map.og_table
     pS_ABp = gene_diversity_table['A-Bp_pS_mean'].values.astype(float)
@@ -69,7 +58,7 @@ def make_gene_nucleotide_diversity_table(pangenome_map, species_cluster_genomes,
                 s1 = species[i]
                 for metric in ['mean', 'std', 'min', 'max']:
                     data_cols.append(f'{s1}-{s2}_{sites}_{metric}')
-    
+
     #diversity_table = pd.DataFrame(index=species_cluster_genomes.index.values, columns=['osa_location', 'osbp_location', 'A_piS', 'Bp_piS', 'C_piS', 'A-Bp_pS_mean', 'A-Bp_pS_std', 'A-C_pS_mean', 'A-C_pS_std', 'Bp-C_pS_mean', 'Bp-C_pS_std'])
     diversity_table = pd.DataFrame(index=species_cluster_genomes.index.values, columns=['osa_location', 'osbp_location'] + data_cols)
     diversity_table.loc[:, ['osa_location', 'osbp_location']] = species_cluster_genomes[['osa_location', 'osbp_location']]
@@ -159,7 +148,7 @@ def construct_trench_loci_table(parent_og_ids, og_table, metadata, osa_cds_dict,
             if '-' in locus_id:
                 locus_id = '-'.join(locus_id.split('-')[:-1])
             cyb_tags.append(locus_id)
-        else: 
+        else:
             # Remove subspecies index if necessary
             root_id = '-'.join(locus_id.split('-')[:-1])
             if locus_id in osbp_cds_dict:
@@ -233,7 +222,7 @@ def make_single_site_tables(pangenome_map, metadata, alignments_dir, args, speci
             print('\n\n')
 
 
-def calculate_single_site_statistics(pangenome_map, alignments_dir, species_sag_ids, species_core_ogs, 
+def calculate_single_site_statistics(pangenome_map, alignments_dir, species_sag_ids, species_core_ogs,
         main_cloud=False, sites='4D', aln_ext='cleaned_aln.fna'):
     num_site_alleles = pd.DataFrame(index=species_core_ogs, columns=['1', '2', '3', '4', 'n'])
     mutation_spectra = pd.DataFrame(index=species_core_ogs, columns=['A', 'C', 'G', 'T', 'A<>C', 'A<>G', 'A<>T', 'C<>G', 'C<>T', 'G<>T'])
@@ -294,7 +283,7 @@ def calculate_allele_mutation_frequencies(aln, nucleotides=['A', 'C', 'G', 'T'])
 
     # Get biallelic sites
     biallelic_idx = sites_idx[num_alleles == 2]
-    
+
     if len(biallelic_idx) > 0:
         aln_biallelic_arr = np.array(align_utils.get_alignment_sites(aln, biallelic_idx))
         for s in range(aln_biallelic_arr.shape[1]):
@@ -427,7 +416,7 @@ def sort_hybridization_events_by_type(hybridization_counts_df, pangenome_map, me
             mismatches_subtable = gene_cluster_mismatches.loc[sog_ids, :].dropna(axis=1, how='all')
             mismatched_sag_ids = mismatches_subtable.columns[(mismatches_subtable == True).sum(axis=0) > 0].values
             donor_cluster = og_table.loc[sog_ids, 'sequence_cluster']
-            host_clusters = [[metadata.get_sag_species(sag_id) for sag_id in mismatched_sag_ids[mismatches_subtable.loc[sog_id, mismatched_sag_ids] == True]] for sog_id in sog_ids] 
+            host_clusters = [[metadata.get_sag_species(sag_id) for sag_id in mismatched_sag_ids[mismatches_subtable.loc[sog_id, mismatched_sag_ids] == True]] for sog_id in sog_ids]
             for j, donor in enumerate(donor_cluster):
                 if len(host_clusters[j]) > 0:
                     for host_species in host_clusters[j]:
@@ -593,7 +582,7 @@ def make_pairwise_divergence_tables(pangenome_map, metadata, args):
     sag_ids = pangenome_map.get_sag_ids()
     species_sorted_sags = metadata.sort_sags(sag_ids, by='species')
     sorted_sag_ids = np.concatenate([species_sorted_sags[s] for s in ['A', 'Bp', 'C']])
-    
+
     d_arr = initialize_pdist_array(core_og_ids, sorted_sag_ids)
     pS_arr = initialize_pdist_array(core_og_ids, sorted_sag_ids)
     pN_arr = initialize_pdist_array(core_og_ids, sorted_sag_ids)
@@ -662,7 +651,7 @@ def filter_pdist_df(pdist, pangenome_map):
     g_idx = g_idx[np.isin(g_sag_ids, s_unique[s_counts <= 1])]
     pdist_filtered = pdist.loc[filtered_idx, filtered_idx]
 
-    sag_idx = g_sag_ids[np.isin(g_sag_ids, s_unique[s_counts <= 1])] 
+    sag_idx = g_sag_ids[np.isin(g_sag_ids, s_unique[s_counts <= 1])]
     pdist_filtered.columns = sag_idx
     pdist_filtered.index = sag_idx
     return pdist_filtered
@@ -671,12 +660,57 @@ def copy_pdist_values(pdist_filtered, d_arr, i, sorted_sag_ids, d_idx):
     g_idx = d_idx[np.isin(sorted_sag_ids, pdist_filtered.index.values)]
     sag_idx = sorted_sag_ids[g_idx]
     pdist_filtered = pdist_filtered.loc[sag_idx, sag_idx]
-    
+
     n = len(sorted_sag_ids)
     idx_1d = np.arange(n)[:, None] * n + np.arange(n)[None, :]
     g_idx_1d = idx_1d[g_idx, :][:, g_idx].flatten()
 
     d_arr[i].flat[g_idx_1d] = pdist_filtered.values.flatten()
+
+
+###########################################################
+# SNP block validation
+###########################################################
+
+def make_snp_block_bootstrap_tables(pangenome_map, metadata, rng, args):
+    bootstrap_dir = f'{args.results_dir}supplement/quality_control/'
+    aln_dir = f'{args.results_dir}alignments/v2/core_ogs_cleaned/'
+
+    sag_ids = pangenome_map.get_sag_ids()
+    species_sorted_sag_ids = metadata.sort_sags(sag_ids, by='species')
+
+    # Make test samples SAG IDs
+    pure_syna_sample_sags, mixed_syna_sample_sags, nonpure_syna_sample_sags = make_syna_test_samples(pangenome_map, metadata)
+    if os.path.exists(f'{bootstrap_dir}pure_syna_sample_sags.txt') == False:
+        np.savetxt(f'{bootstrap_dir}pure_syna_sample_sags.txt', pure_syna_sample_sags, fmt='%s')
+    if os.path.exists(f'{bootstrap_dir}mixed_syna_sample_sags.txt') == False:
+        np.savetxt(f'{bootstrap_dir}mixed_syna_sample_sags.txt', mixed_syna_sample_sags, fmt='%s')
+
+    # Make list of alignment files
+    aln_files = np.sort(glob.glob(f'{aln_dir}*_cleaned_aln.fna'))
+    #aln_files = rng.choice(aln_files, 10)
+    if os.path.exists(f'{bootstrap_dir}core_og_alignment_files.txt') == False:
+        np.savetxt(f'{bootstrap_dir}core_og_alignment_files.txt', aln_files, fmt='%s')
+
+    if args.bootstrap_index is None:
+        print('Searching for SNP blocks in pure A samples..')
+        snp_blocks.make_linkage_block_tables(aln_files, pure_syna_sample_sags, species_sorted_sag_ids, pangenome_map, metadata, None, 'A', f'{bootstrap_dir}pure_syna_sample_snp.tsv', verbose=args.verbose)
+    else:
+        print('Searching for SNP blocks in mixed A-Bp samples...')
+        bootstrap_sags = rng.choice(mixed_syna_sample_sags, len(pure_syna_sample_sags))
+        print(bootstrap_sags, len(bootstrap_sags))
+        snp_blocks.make_linkage_block_tables(aln_files, pure_syna_sample_sags, species_sorted_sag_ids, pangenome_map, metadata, None, 'A', f'{bootstrap_dir}mixed_syna_sample_{args.bootstrap_index}_snp.tsv', verbose=args.verbose)
+
+
+def make_syna_test_samples(pangenome_map, metadata):
+    sag_ids = pangenome_map.get_sag_ids()
+    syna_sag_ids = metadata.sort_sags(sag_ids, by='species')['A']
+    sample_sorted_sag_ids = metadata.sort_sags(syna_sag_ids, by='sample')
+    pure_syna_sample_sags = np.array(sample_sorted_sag_ids['OS2005'])
+    mixed_syna_sample_sags = np.concatenate([sample_sorted_sag_ids[sample] for sample in ['MS2004', 'MS2006', 'OS2009']])
+    nonpure_syna_sample_sags = np.concatenate([sample_sorted_sag_ids[sample] for sample in sample_sorted_sag_ids if sample != 'OS2005'])
+
+    return pure_syna_sample_sags, mixed_syna_sample_sags, nonpure_syna_sample_sags
 
 
 if __name__ == '__main__':
@@ -695,13 +729,14 @@ if __name__ == '__main__':
     parser.add_argument('-R', '--results_dir', default=results_dir, help='Directory with analysis results.')
     parser.add_argument('-O', '--output_dir', default=output_dir, help='Main results directory.')
     parser.add_argument('-g', '--orthogroup_table', default=f_orthogroup_table, help='File with orthogroup table.')
+    parser.add_argument('-s', '--seed', type=int, default=None, help='RNG seed.')
     parser.add_argument('-v', '--verbose', action='store_true', help='Run in verbose mode.')
     parser.add_argument('--contig_length_cutoff', type=int, default=0, help='Filter hybrid contigs with this or fewer number of genes.')
     parser.add_argument('--validate_counts', action='store_true', help='Recalculate transfer counts from cluster labeled genomes for validation.')
+    parser.add_argument('--bootstrap_index', default=None, type=int, help='SNP block bootstrap index. If None, use pure A sample.')
     args = parser.parse_args()
 
-    random_seed = 12345
-    rng = np.random.default_rng(random_seed)
+    rng = np.random.default_rng(args.seed)
 
     pangenome_map = pg_utils.PangenomeMap(f_orthogroup_table=args.orthogroup_table)
     metadata = MetadataMap()
@@ -709,6 +744,6 @@ if __name__ == '__main__':
     #make_single_site_tables(pangenome_map, metadata, '../results/single-cell/alignments/v2/core_ogs_cleaned/', args, sites='4D')
     #make_single_site_tables(pangenome_map, metadata, '../results/single-cell/alignments/v2/core_ogs_cleaned/', args, sites='all_sites')
     #make_hybridization_tables(pangenome_map, metadata, args)
-    make_pairwise_divergence_tables(pangenome_map, metadata, args)
-
+    #make_pairwise_divergence_tables(pangenome_map, metadata, args)
+    make_snp_block_bootstrap_tables(pangenome_map, metadata, rng, args)
 
