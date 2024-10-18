@@ -376,10 +376,9 @@ def remove_paralogs(aln):
 
 def get_subsample_alignment(aln, sample_ids):
     subsample_aln = []
-    if len(sample_ids) > 0:
-        for rec in aln:
-            if rec.id in sample_ids:
-                subsample_aln.append(rec)
+    for rec in aln:
+        if rec.id in sample_ids:
+            subsample_aln.append(rec)
     return MultipleSeqAlignment(subsample_aln)
 
 def get_alignment_sites(aln, x_sites):
@@ -703,33 +702,18 @@ def get_high_frequency_snp_alignment(aln, freq_threshold, counts_filter=False):
     return aln_snps, x_snps
 
 def remove_low_frequency_snps(aln, f_threshold, return_x=False):
-    num_site_alleles = count_site_alleles(aln)
-    x_biallelic = np.arange(aln.get_alignment_length())[num_site_alleles == 2]
+    snp_frequencies = calculate_snp_frequencies(aln, filter_nans=False)
     filtered_list = []
-
-    if len(x_biallelic) > 1:
-        aln_biallelic = get_alignment_sites(aln, x_biallelic)
-        snp_frequencies = calculate_snp_frequencies(aln_biallelic, filter_nans=False)
-        for record in aln_biallelic:
-            filtered_seq = Seq(''.join(np.array(record.seq)[snp_frequencies > f_threshold]))
-            filtered_list.append(SeqRecord(filtered_seq, id=record.id, name=record.name, description=record.description))
-        x_snps = x_biallelic[snp_frequencies > f_threshold]
-    else:
-        x_snps = None
-
+    for record in aln:
+        filtered_seq = Seq(''.join(np.array(record.seq)[snp_frequencies > f_threshold]))
+        filtered_list.append(SeqRecord(filtered_seq, id=record.id, name=record.name, description=record.description))
     filtered_aln = MultipleSeqAlignment(filtered_list)
     if return_x:
-        return filtered_aln, x_snps
+        x = np.arange(len(aln[0]))
+        return filtered_aln, x[snp_frequencies > f_threshold]
     else:
         return filtered_aln
 
-def count_site_alleles(aln, excluded_alleles=['-', 'N']):
-    aln_arr = np.array(aln)
-    num_alleles = []
-    for s in range(aln_arr.shape[1]):
-        unique_alleles = np.unique(aln_arr[~np.isin(aln_arr[:, s], excluded_alleles), s])
-        num_alleles.append(len(unique_alleles))
-    return np.array(num_alleles)
 
 def read_and_process_alignment(f_aln, sites='all'):
     aln_raw = seq_utils.read_alignment(f_aln)
@@ -1633,18 +1617,10 @@ def test_pairwise_distances(og_id='CYB_1073', species='Bp', f_orthogroup_table='
     Z = hclust.linkage(pdist, method='average', optimal_ordering=True)
 
 
-def test_main_cloud_alignment():
-    metadata = MetadataMap()
-    pangenome_map = pg_utils.PangenomeMap(f_orthogroup_table='../results/single-cell/sscs_pangenome_v2/filtered_low_copy_clustered_core_mapped_labeled_cleaned_orthogroup_table.tsv')
-    aln_mc = read_main_cloud_alignment('../results/single-cell/alignments/v2/core_ogs_cleaned/YSG_0088a_cleaned_aln.fna', pangenome_map, metadata)
-    write_alignment(aln_mc, '../results/tests/alignments/YSG_0088a_main_cloud_aln.fna')
-
-
 if __name__ == '__main__':
     #test_sequence_table()
     #test_linkage_metrics()
     #test_alignment_processing()
     #test_diversity_statistics()
-    #test_pairwise_distances()
-    test_main_cloud_alignment()
+    test_pairwise_distances()
 

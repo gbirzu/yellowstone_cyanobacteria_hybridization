@@ -232,8 +232,7 @@ def convert_alignment_to_numeric(multiseq_alignment, reference_sample):
     alignment_numeric += 2*(alignment_array != alignment_array[reference_sample])
 
     # Set gaps to 0
-    #alignment_numeric[np.where(alignment_array == '-')] = 0
-    alignment_numeric[np.isin(alignment_array, ['-'])] = 0
+    alignment_numeric[np.where(alignment_array == '-')] = 0
 
     return alignment_numeric
 

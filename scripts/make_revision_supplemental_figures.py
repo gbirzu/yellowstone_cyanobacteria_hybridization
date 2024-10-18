@@ -1075,7 +1075,7 @@ def plot_hybridization_spectra(transfer_type_distribution, pangenome_map, metada
     # Plot species composition by sample
     ax_labels = ['A', 'B']
     line_styles = ['-o', '--s', '-.x', ':D']
-    colors = ['magenta', 'cyan']
+    colors = ['tab:purple', 'tab:cyan']
     x = np.arange(3)
 
     fig = plt.figure(figsize=(double_col_width, 0.8 * single_col_width))
@@ -1108,7 +1108,7 @@ def plot_hybridization_spectra(transfer_type_distribution, pangenome_map, metada
             ax.plot(x, y, line_styles[line_idx], color=colors[color_idx], ms=4, label=sample)
 
         ax.text(-0.2, 1.05, ax_labels[i], transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
-        ax.legend(ncol=2, fontsize=8, frameon=False)
+        ax.legend(ncol=2, fontsize=8, frameon=False, handlelength=3)
 
     plt.tight_layout()
     plt.savefig(savefig)
@@ -1205,13 +1205,13 @@ def make_hybridization_qc_figures(pangenome_map, args, low_diversity_cutoff=0.05
     plot_og_presence_model_validation(pangenome_map, low_diversity_ogs, pure_syna_sample_sags, f'{args.figures_dir}S{fig_count}_og_presence_model_fit.pdf')
     fig_count += 1
 
+    '''
     plot_og_presence_tests(pangenome_map, (low_diversity_ogs, high_diversity_ogs), (pure_syna_sample_sags, mixed_syna_sample_sags), f'{args.figures_dir}S{fig_count}_og_presence_tests.pdf')
     fig_count += 1
+    '''
 
-    '''
-    plot_block_distributions_sample_comparisons('../results/single-cell/qc/', f'{args.figures_dir}S{fig_count}_block_distribution_comparison.pdf')
+    plot_block_distributions_sample_comparisons('../results/single-cell/supplement/quality_control/', f'{args.figures_dir}S{fig_count}_block_distribution_comparison.pdf')
     fig_count += 1
-    '''
 
 def make_syna_test_samples(pangenome_map, metadata):
     sag_ids = pangenome_map.get_sag_ids()
@@ -1229,16 +1229,18 @@ def plot_species_composition_timeseries(metadata, savefig, label_fs=14, legend_f
 
     fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
     ax = fig.add_subplot(111)
-    ax.set_xlabel('year', fontsize=label_fs)
+    ax.set_xlabel('Year', fontsize=label_fs)
     ax.set_xticks(xticks)
     ax.set_ylabel(r'$\alpha$ relative abundance', fontsize=label_fs)
     ax.set_yticks(yticks)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
 
     p, p_err = estimate_binomial_fraction(os_num)
-    ax.errorbar(os_t, 1 - p[:, 1], yerr=p_err[::-1], fmt='-o', mec='none', mfc='cyan', c='cyan', elinewidth=1, capsize=3, label='OS')
+    ax.errorbar(os_t, 1 - p[:, 1], yerr=p_err[::-1], fmt='-o', mec='none', mfc='tab:cyan', c='tab:cyan', elinewidth=1, capsize=3, label='OS')
     p, p_err = estimate_binomial_fraction(ms_num)
-    ax.errorbar(ms_t, 1 - p[:, 1], yerr=p_err[::-1], fmt='-o', mec='none', mfc='magenta', c='magenta', elinewidth=1, capsize=3, label='MS')
-    ax.legend(fontsize=legend_fs)
+    ax.errorbar(ms_t, 1 - p[:, 1], yerr=p_err[::-1], fmt='-o', mec='none', mfc='tab:purple', c='tab:purple', elinewidth=1, capsize=3, label='MS')
+    ax.legend(fontsize=legend_fs, frameon=False)
     plt.tight_layout()
     plt.savefig(savefig)
     plt.close()
@@ -1282,45 +1284,52 @@ def plot_og_presence_model_validation(pangenome_map, og_ids, sag_ids, savefig, b
     nrows = 2
     ncols = 3
     h_ratio = 1.5
-    w_ratio = 10
+    w_ratio = 15
     #ratio = 1
     fig = plt.figure(figsize=(double_col_width, (2 / (1 + h_ratio)) * double_col_width), constrained_layout=True)
     gspec = gridspec.GridSpec(ncols=ncols, nrows=nrows, figure=fig, height_ratios=[h_ratio, 1], width_ratios=[w_ratio, w_ratio, 1])
 
     ax = plt.subplot(gspec[0, 0])
-    ax.text(-120, -2, 'A', fontweight='bold', fontsize=16)
+    ax.text(-0.2, 1.05, 'A', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
     ax.imshow(presence_df.loc[sorted_sag_ids, sorted_og_ids].values, aspect='auto', vmin=0, vmax=1, cmap='Greys', interpolation='nearest')
-    ax.set_xlabel('OG index', fontsize=12)
-    ax.set_ylabel('SAG index', fontsize=12)
+    ax.set_xlabel('Gene rank', fontsize=12)
+    ax.set_ylabel('Cell rank', fontsize=12)
+    ax.tick_params(top=True, labeltop=True, bottom=False, labelbottom=False)
+    ax.xaxis.set_label_position('top') 
 
     ax = plt.subplot(gspec[1, 0])
-    ax.text(-0.2, 7, 'C', fontweight='bold', fontsize=16)
+    ax.text(-0.2, 1.05, 'C', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
     og_coverage = np.sum(presence_df.values, axis=0) / N
-    plot_presence_distribution(ax, og_coverage, fit_params=(mu_coverage, sigma_coverage))
-    ax.legend(fontsize=10)
+    plot_presence_distribution(ax, og_coverage, fit_params=(mu_coverage, sigma_coverage), label='data')
+    ax.legend(fontsize=10, frameon=False)
 
     ax = plt.subplot(gspec[0, 1])
-    ax.text(-150, -30, 'B', fontweight='bold', fontsize=16)
+    ax.text(-0.2, 1.05, 'B', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
     cmap = plt.get_cmap('coolwarm')
     #cmap = plt.get_cmap('bwr')
     norm = mpl.colors.TwoSlopeNorm(vmin=np.min(covariance_df.values), vcenter=0, vmax=np.max(covariance_df.values))
     im = ax.imshow(covariance_df.loc[sorted_og_ids, sorted_og_ids].values, aspect='auto', cmap=cmap, norm=norm, interpolation='nearest')
-    ticks = np.arange(0, 801, 200)
-    ax.set_xlabel('OG index', fontsize=12)
+    #im = ax.imshow(covariance_df.loc[sorted_og_ids, sorted_og_ids].values, aspect='auto', cmap=cmap, interpolation='nearest')
+    ticks = np.arange(0, L, 100)
+    #ticks = np.arange(0, 801, 200)
+    ax.set_xlabel('Gene rank', fontsize=12)
     ax.set_xticks(ticks)
-    ax.set_ylabel('OG index', fontsize=12)
+    ax.set_ylabel('Gene rank', fontsize=12)
     ax.set_yticks(ticks)
+    ax.tick_params(top=True, labeltop=True, bottom=False, labelbottom=False)
+    ax.xaxis.set_label_position('top') 
 
     ax = plt.subplot(gspec[0, 2])
-    plt.colorbar(im, cax=ax)
+    plt.colorbar(im, cax=ax, ticks=[-0.1, -0.07, -0.03, 0, 0.1, 0.2, 0.3], label='Covariance')
 
     ax = plt.subplot(gspec[1, 1])
-    ax.text(-0.2, 33, 'D', fontweight='bold', fontsize=16)
+    ax.text(-0.2, 1.05, 'D', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
     ax.set_xlim(-0.1, 0.5)
     ax.set_ylim(-0.02, 30) 
-    ax.set_xlabel('OG presence covariance')
-    ax.set_ylabel('probability density')
-
+    ax.set_xlabel('Gene coverage covariance')
+    ax.set_ylabel('Probability density')
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
 
     # Compare diagonal and off-diagonal to prediction from independent presence
     C_aa_values = covariance_df.values.diagonal()
@@ -1336,12 +1345,12 @@ def plot_og_presence_model_validation(pangenome_map, og_ids, sag_ids, savefig, b
 
     ax.hist(C_aa_values, bins=x_bins, color='tab:blue', alpha=0.6, density=True, label='data')
     y_aa = stats.norm.pdf(x_bins, loc=mu_aa, scale=sigma_aa)
-    ax.plot(x_bins, y_aa, color='tab:orange', label='$C_{aa}$ (idependent OGs)')
+    ax.plot(x_bins, y_aa, color='tab:orange', label='$C_{aa}$ null model')
 
     ax.hist(C_ab_values, bins=x_bins, color='tab:blue', alpha=0.6, density=True)
     y_ab = stats.norm.pdf(x_bins, loc=0, scale=sigma_ab)
-    ax.plot(x_bins, y_ab, color='tab:green', label='$C_{ab}$ (idependent OGs)')
-    ax.legend(fontsize=10)
+    ax.plot(x_bins, y_ab, color='tab:green', label='$C_{ab}$ null model')
+    ax.legend(fontsize=10, frameon=False)
 
     #plt.tight_layout()
     plt.savefig(savefig)
@@ -1365,8 +1374,11 @@ def calculate_og_presence_covariance(pangenome_map, og_ids, sag_ids):
     covariance_df = pd.DataFrame(np.dot((p_matrix - pbar_matrix).T, (p_matrix - pbar_matrix)) / N, index=og_ids, columns=og_ids)
     return presence_df, covariance_df
 
-def plot_presence_distribution(ax, og_coverage, fit_params=None, x_bins=None, num_bins=47, alpha=1.0, xlabel='fraction SAGs present', ylabel='probability density', label='', fit_label='fit', label_fs=12, legend_fs=12, **hist_kwargs):
+def plot_presence_distribution(ax, og_coverage, fit_params=None, x_bins=None, num_bins=47, alpha=1.0, xlabel='Gene coverage probability', ylabel='Probability density', label='', fit_label='fit', label_fs=12, legend_fs=12, **hist_kwargs):
     ax.set_xlabel(xlabel, fontsize=label_fs)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
     if ylabel is not None:
         ax.set_ylabel(ylabel, fontsize=label_fs)
 
@@ -1384,7 +1396,7 @@ def plot_presence_distribution(ax, og_coverage, fit_params=None, x_bins=None, nu
         ax.plot(x_bins, y_theory, label=fit_label)
 
     if label != '':
-        ax.legend(fontsize=legend_fs)
+        ax.legend(fontsize=legend_fs, frameon=False)
 
 
 def plot_og_presence_tests(pangenome_map, og_ids_tuple, sag_ids_tuple, savefig):
@@ -1484,23 +1496,30 @@ def partition_ogs_by_clusters(og_ids, pangenome_map):
 
 
 def plot_block_distributions_sample_comparisons(input_dir, savefig):
-    pure_syna_sample_block_stats = pd.read_csv(f'{input_dir}pure_syna_sample_4D_sites_hybrid_linkage_block_stats.tsv', sep='\t', index_col=0)
-    mixed_syna_sample_block_stats = pd.read_csv(f'{input_dir}mixed_syna_sample_4D_sites_hybrid_linkage_block_stats.tsv', sep='\t', index_col=0)
+    #pure_syna_sample_block_stats = pd.read_csv(f'{input_dir}pure_syna_sample_4D_sites_hybrid_linkage_block_stats.tsv', sep='\t', index_col=0)
+    #mixed_syna_sample_block_stats = pd.read_csv(f'{input_dir}mixed_syna_sample_4D_sites_hybrid_linkage_block_stats.tsv', sep='\t', index_col=0)
+    pure_syna_sample_block_stats = pd.read_csv(f'{input_dir}pure_syna_sample_snp_block_stats.tsv', sep='\t', index_col=0)
+    mixed_syna_sample_block_stats = pd.read_csv(f'{input_dir}mixed_syna_sample_snp_block_stats.tsv', sep='\t', index_col=0)
     bootstrap_results = read_bootstrap_results(input_dir)
+    print(bootstrap_results)
 
     # Set up figure
     nrows = 1
     ncols = 3
     fig = plt.figure(figsize=(double_col_width, 0.8 * single_col_width))
-    gspec = gridspec.GridSpec(ncols=ncols, nrows=nrows, figure=fig)
+    #gspec = gridspec.GridSpec(ncols=ncols, nrows=nrows, figure=fig)
 
-    ax = plt.subplot(gspec[0, 0])
+    #ax = plt.subplot(gspec[0, 0])
+    ax = fig.add_subplot(131)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.text(-0.2, 1.1, 'A', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+
     ax_label_hratio = 1.15
     ymax = 0.04
-    ax.text(80, ax_label_hratio * ymax, 'A', fontweight='bold', fontsize=14)
     num_blocks_values = bootstrap_results['number of blocks'].values
     x_bins = np.arange(np.min(num_blocks_values) - 1, np.max(num_blocks_values) + 2, 4)
-    plot_presence_distribution(ax, num_blocks_values[1:], x_bins=x_bins, alpha=1.0, xlabel='number of blocks', label_fs=14)
+    plot_presence_distribution(ax, num_blocks_values[1:], x_bins=x_bins, alpha=1.0, xlabel='SNP blocks', label_fs=14)
     ax.set_ylim(0, ymax)
     ax.annotate('', xy=(num_blocks_values[0], 0.01), xycoords='data', 
             xytext=(num_blocks_values[0], 0.035),
@@ -1508,16 +1527,22 @@ def plot_block_distributions_sample_comparisons(input_dir, savefig):
             horizontalalignment='center', verticalalignment='top',
             )
 
-    ax = plt.subplot(gspec[0, 1])
+    #ax = plt.subplot(gspec[0, 1])
+    ax = fig.add_subplot(132)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.text(-0.2, 1.1, 'B', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+
     ymax = 0.3
-    ax.text(-5, ax_label_hratio * ymax, 'B', fontweight='bold', fontsize=16)
+    #ax.text(-5, ax_label_hratio * ymax, 'B', fontweight='bold', fontsize=16)
     group1_lengths = pure_syna_sample_block_stats['num_snps'].values
     group2_lengths = mixed_syna_sample_block_stats['num_snps'].values
     length_values = np.concatenate([group1_lengths, group2_lengths])
     x_bins = np.arange(5, np.max(length_values) + 2)
-    plot_presence_distribution(ax, group1_lengths, x_bins=x_bins, alpha=0.5, xlabel='block length (SNPs)', ylabel=None, label=r'$\alpha$ only', label_fs=14)
-    plot_presence_distribution(ax, group2_lengths, x_bins=x_bins, alpha=0.5, xlabel='block length (SNPs)', ylabel=None, label=r'$\alpha-\beta$ mixed', label_fs=14, legend_fs=8)
-    ax.set_xticks(np.arange(5, x_bins[-1], 5))
+    plot_presence_distribution(ax, group1_lengths, x_bins=x_bins, alpha=0.5, xlabel='Block length (SNPs)', ylabel=None, label=r'$\alpha$ only', label_fs=14)
+    plot_presence_distribution(ax, group2_lengths, x_bins=x_bins, alpha=0.5, xlabel='Block length (SNPs)', ylabel=None, label=r'$\alpha-\beta$ mixed', label_fs=14, legend_fs=10)
+    #ax.set_xticks(np.arange(5, x_bins[-1], 5))
+    ax.set_xticks(np.arange(5, x_bins[-1], 10))
     ax.set_ylim(0, ymax)
 
     ks_stat, ks_pvalue = stats.kstest(group1_lengths, group2_lengths)
@@ -1527,9 +1552,14 @@ def plot_block_distributions_sample_comparisons(input_dir, savefig):
     print('\n')
 
 
-    ax = plt.subplot(gspec[0, 2])
+    #ax = plt.subplot(gspec[0, 2])
+    ax = fig.add_subplot(133)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.text(-0.2, 1.1, 'C', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+
     ymax = 4 
-    ax.text(-0.15, ax_label_hratio * ymax, 'C', fontweight='bold', fontsize=16)
+    #ax.text(-0.15, ax_label_hratio * ymax, 'C', fontweight='bold', fontsize=16)
     group1_dS = pure_syna_sample_block_stats['dS_b'].values
     group2_dS = mixed_syna_sample_block_stats['dS_b'].values
     dS_values = np.concatenate([group1_dS, group2_dS])
@@ -1537,9 +1567,9 @@ def plot_block_distributions_sample_comparisons(input_dir, savefig):
     num_bins = 23
     x_bins = np.linspace(0, np.max(dS_values) + epsilon, num_bins)
     plot_presence_distribution(ax, group1_dS, x_bins=x_bins, alpha=0.5, ylabel=None, label=r'$\alpha$ only', label_fs=14)
-    plot_presence_distribution(ax, group2_dS, x_bins=x_bins, alpha=0.5, xlabel='hapl. divergence, $d_S^{(b)}$', ylabel=None, label=r'$\alpha-\beta$ mixed', label_fs=14, legend_fs=8)
+    plot_presence_distribution(ax, group2_dS, x_bins=x_bins, alpha=0.5, xlabel=r'Hapl. divergence, $d_{\alpha_1 \alpha_2}$', ylabel=None, label=r'$\alpha-\beta$ mixed', label_fs=14, legend_fs=10)
     ax.set_xlim(0, 1.2)
-    #ax.set_ylim(0, ymax)
+    ax.set_ylim(0, ymax)
 
     ks_stat, ks_pvalue = stats.kstest(group1_dS, group2_dS)
     print(f'OS05 vs mixed-species samples haplotype divergences: {ks_stat:.4f}, {ks_pvalue:.1e}')
@@ -1557,13 +1587,16 @@ def read_bootstrap_results(input_dir):
     num_replicas = 100
     bootstrap_samples_idx = [f'sample{i}' for i in range(1, num_replicas+1)]
     bootstrap_results = pd.DataFrame(index=['test_sample'] + bootstrap_samples_idx, columns=['number of blocks', 'mean block length', 'mean dS_b'])
-    pure_syna_sample_block_stats = pd.read_csv(f'{input_dir}pure_syna_sample_4D_sites_hybrid_linkage_block_stats.tsv', sep='\t', index_col=0)
+    #pure_syna_sample_block_stats = pd.read_csv(f'{input_dir}pure_syna_sample_4D_sites_hybrid_linkage_block_stats.tsv', sep='\t', index_col=0)
+    pure_syna_sample_block_stats = pd.read_csv(f'{input_dir}pure_syna_sample_snp_block_stats.tsv', sep='\t', index_col=0)
+    #pure_syna_sample_block_stats = pd.read_csv(f'{input_dir}pure_syna_sample_snp_block_stats_v1.tsv', sep='\t', index_col=0)
     bootstrap_results.loc['test_sample', 'number of blocks'] = len(pure_syna_sample_block_stats)
     bootstrap_results.loc['test_sample', 'mean block length'] = pure_syna_sample_block_stats['num_snps'].mean()
     bootstrap_results.loc['test_sample', 'mean dS_b'] = pure_syna_sample_block_stats['dS_b'].mean()
 
     for i in range(1, num_replicas+1):
-        sample_block_stats = pd.read_csv(f'{input_dir}mixed_syna_sample{i}_4D_sites_hybrid_linkage_block_stats.tsv', sep='\t', index_col=0)
+        #sample_block_stats = pd.read_csv(f'{input_dir}mixed_syna_sample{i}_4D_sites_hybrid_linkage_block_stats.tsv', sep='\t', index_col=0)
+        sample_block_stats = pd.read_csv(f'{input_dir}mixed_syna_sample_{i}_snp_block_stats.tsv', sep='\t', index_col=0)
         bootstrap_results.loc[f'sample{i}', 'number of blocks'] = len(sample_block_stats)
         bootstrap_results.loc[f'sample{i}', 'mean block length'] = sample_block_stats['num_snps'].mean()
         bootstrap_results.loc[f'sample{i}', 'mean dS_b'] = sample_block_stats['dS_b'].mean()
@@ -1605,8 +1638,8 @@ if __name__ == '__main__':
     #make_gene_hybridization_figures(pangenome_map, args)
     #fig_count = 17
     #make_linkage_block_figures(args)
-    fig_count = 19
-    make_sample_variation_figures(pangenome_map, args)
-    fig_count = 20
-    #make_hybridization_qc_figures(pangenome_map, args)
+    #fig_count = 19
+    #make_sample_variation_figures(pangenome_map, args)
+    fig_count = 21
+    make_hybridization_qc_figures(pangenome_map, args)
 

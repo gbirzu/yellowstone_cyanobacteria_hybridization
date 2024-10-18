@@ -688,19 +688,17 @@ def make_snp_block_bootstrap_tables(pangenome_map, metadata, rng, args):
 
     # Make list of alignment files
     aln_files = np.sort(glob.glob(f'{aln_dir}*_cleaned_aln.fna'))
+    aln_files = aln_files[200:220]
     if os.path.exists(f'{bootstrap_dir}core_og_alignment_files.txt') == False:
         np.savetxt(f'{bootstrap_dir}core_og_alignment_files.txt', aln_files, fmt='%s')
 
     if args.bootstrap_index is None:
-        print('Searching for SNP blocks in pure A samples..\n')
+        print('Searching for SNP blocks in pure A samples..')
         snp_blocks.make_linkage_block_tables(aln_files, pure_syna_sample_sags, species_sorted_sag_ids, pangenome_map, metadata, None, 'A', f'{bootstrap_dir}pure_syna_sample_snp.tsv', verbose=args.verbose)
-
-        print('\n')
-        print('Searching for SNP blocks in mixed A-Bp samples...\n')
         snp_blocks.make_linkage_block_tables(aln_files, mixed_syna_sample_sags, species_sorted_sag_ids, pangenome_map, metadata, None, 'A', f'{bootstrap_dir}mixed_syna_sample_snp.tsv', verbose=args.verbose)
     else:
         print('Searching for SNP blocks in mixed A-Bp samples...')
-        bootstrap_sags = rng.choice(nonpure_syna_sample_sags, size=len(pure_syna_sample_sags), replace=False)
+        bootstrap_sags = rng.choice(mixed_syna_sample_sags, len(pure_syna_sample_sags))
         print(bootstrap_sags, len(bootstrap_sags))
         snp_blocks.make_linkage_block_tables(aln_files, bootstrap_sags, species_sorted_sag_ids, pangenome_map, metadata, None, 'A', f'{bootstrap_dir}mixed_syna_sample_{args.bootstrap_index}_snp.tsv', verbose=args.verbose)
 
