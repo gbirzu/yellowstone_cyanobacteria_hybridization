@@ -593,8 +593,6 @@ def plot_pdist_loci_comparisons(ax, locus1_pdist, locus2_pdist, rrna_sag_ids, me
 
     x = utils.get_matrix_triangle_values(locus1_pdist, k=1).astype(float)
     y = utils.get_matrix_triangle_values(locus2_pdist, k=1).astype(float)
-    print(x, len(x), type(x))
-    print(y, len(y), type(y))
 
     ax.scatter(x, y, s=5, fc=color, ec='none', alpha=alpha)
 
@@ -678,12 +676,17 @@ def make_genetic_diversity_figure(pangenome_map, args, low_diversity_cutoff=0.05
     ax.set_ylabel('')
     ax.set_xticks([0, 0.25, 0.5, 0.75, 1])
 
+
+    hybrid_counts_table = pd.read_csv(f'{args.data_dir}hybridization_counts_table.tsv', sep='\t', index_col=0)
+    mosaic_og_ids = hybrid_counts_table.index.values[hybrid_counts_table['M'] > 0]
+
     f_block_stats = f'{args.data_dir}Bp_core_snp_block_stats.tsv'
     block_diversity_stats = pd.read_csv(f_block_stats, sep='\t')
     num_total_snps = synbp_num_site_alleles_all_sites.loc[:, 'num_snps'].sum()
     num_block_snps = block_diversity_stats.loc[block_diversity_stats.index.values[np.isin(block_diversity_stats['og_id'].values, synbp_num_site_alleles_all_sites.index.values)], 'num_snps'].sum()   
     print(f'Beta OGs: {synbp_num_site_alleles["num_snps"].sum():.0f} 4D SNPs; {synbp_num_site_alleles["L"].sum():.0f} 4D sites; piS = {synbp_num_site_alleles["piS"].mean():.1e}; {len(synbp_num_site_alleles)} loci')
     print(f'\t{num_total_snps:.0f} SNPs; {num_block_snps:.0f} SNPs in blocks; {synbp_num_site_alleles_all_sites.loc[:, "L"].sum():.0f} sites; fraction of block SNPs {num_block_snps / num_total_snps:.3f};  {len(synbp_num_site_alleles_all_sites)} loci')
+    print(f'Mosaic hybrid genes: {synbp_num_site_alleles.loc[mosaic_og_ids, "num_snps"].sum():.0f} 4D SNPs; {synbp_num_site_alleles.loc[mosaic_og_ids, "L"].sum():.0f} 4D sites; piS = {synbp_num_site_alleles.loc[mosaic_og_ids, "piS"].mean():.1e}; {len(mosaic_og_ids)} loci')
 
 
     # Gene diversity comparison

@@ -648,6 +648,39 @@ def make_linkage_figures(pangenome_map, args, avg_length_fraction=0.75, ax_label
     fig_count += 1
 
 
+    # Comparison to neutral model
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    main_figs.set_up_linkage_curve_axis(ax, ax_label='', xlim=(0.02, 3E2), xticks=[1E-1, 1E0, 1E1, 1E2], ylim=(1E-2, 1.5E0), xlabel=r'rescaled separation, $\rho x$', ylabel='linkage disequilibrium', x_ax_label=3E-3)
+    rho_fit = {'A':0.03, 'Bp':0.12}
+    theta = 0.03
+    lmax = 2000
+    x_theory = np.arange(1, lmax)
+
+    for species in ['A', 'Bp']:
+        cloud_radius = cloud_dict[species]
+        linkage_results = pickle.load(open(f'{args.output_dir}sscs_core_ogs_cleaned_{species}_linkage_curves_c{cloud_radius}_all_sites.dat', 'rb'))
+        x_arr, sigmad2 = main_figs.average_linkage_curves(linkage_results, metric='sigmad_sq', average_length_fraction=avg_length_fraction)
+        x_cg, sigmad2_cg = main_figs.coarse_grain_distances(x_arr, sigmad2)
+        y0 = sigmad2_cg[1]
+
+        # Plot theory
+        rho = rho_fit[species]
+        y_theory = er2.sigma2_theory(rho * x_theory, theta)
+        ax.plot(rho * x_cg[:-5], sigmad2_cg[:-5], f'-{marker_dict[species]}', ms=ms, mfc='none', mew=1.5, lw=1.0, alpha=1.0, c=color_dict[species], label=label_dict[species])
+
+    x_theory = np.geomspace(0.01, 200, 100)
+    y_theory = er2.sigma2_theory(x_theory, theta)
+    ax.plot(x_theory, y_theory, lw=1.5, ls='-', c='k', label=f'neutral theory')
+
+    ax.legend(fontsize=10, frameon=False, loc='lower left')
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}S{fig_count}_linkage_collapse.pdf')
+    fig_count += 1
+
+
+
+
 def plot_linkage_depth_control(cloud_dict, color_dict, label_dict, marker_dict, args, avg_length_fraction=0.75, ms=5, savefig=None):
     # Set axes limits
     xlim = (0.8, 3E3)
@@ -874,20 +907,26 @@ def plot_pdist_distributions(og_table, args, savefig):
     plt.savefig(savefig)
     plt.close()
 
+    print(f'Number of unique orthogroups: {len(og_table.parent_og_id.unique())}')
+
 
 ###########################################################
 # Linkage block figures
 ###########################################################
 
-def make_linkage_block_figures(args):
+def make_linkage_block_figures(pangenome_map, args):
     global fig_count
     print(f'Plotting linkage block supplemental figures...')
+
+    metadata = MetadataMap()
 
     plot_dNdS_histograms(args, num_bins=50, p_cutoff=0.70, savefig=f'{args.figures_dir}S{fig_count}_block_dNdS.pdf')
     fig_count += 1
 
     plot_block_length_histogram(args, num_bins=50, savefig=f'{args.figures_dir}S{fig_count}_block_lengths.pdf')
     fig_count += 1
+
+    plot_rrna_alignments(pangenome_map, metadata, args, fig_count)
 
     main_figs.print_break()
        
@@ -979,6 +1018,49 @@ def plot_block_length_histogram(args, num_bins=50, legend_fs=12, savefig=None):
     plt.tight_layout()
     #plt.savefig(f'{args.figures_dir}S{fig_count}_block_length_hist.pdf')
     plt.savefig(savefig)
+
+def plot_rrna_alignments(pangenome_map, metadata, args, fig_count, fig_dpi=1000):
+    fig = plt.figure(figsize=(double_col_width, 1.4 * single_col_width))
+    gspec = gridspec.GridSpec(2, 2, width_ratios=[1, 1.0])
+
+    i_ascii = 65
+
+    ax = plt.subplot(gspec[0, :])
+    #f_16S_aln = f'{args.results_dir}supplement/16S_rRNA_aln.fna'
+    f_16S_aln = f'{args.results_dir}main_figures_data/16S_rRNA_manual_aln.fna'
+    aln = seq_utils.read_alignment(f_16S_aln)
+    #aln_plot = aln[:, 0:801]
+    aln_plot = aln[:, 190:1080]
+    species_grouping = align_utils.sort_aln_rec_ids(aln_plot, pangenome_map, metadata)
+    lw = aln_plot.get_alignment_length() / 100
+    plot_alignment(aln_plot, annotation=species_grouping, annotation_style='lines', marker_size=lw, reference=0, ax=ax)
+    ax.text(-0.05, 1.05, chr(i_ascii), fontsize=10, fontweight='bold', va='center', transform=ax.transAxes)
+
+    xticks = np.arange(10, aln_plot.get_alignment_length() + 1, 100)
+    xticklabels = xticks + 190
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xticklabels)
+
+    for i, og_id in enumerate(['YSG_0713', 'YSG_1007']):
+        ax = plt.subplot(gspec[1, i])
+        f_aln = f'{args.results_dir}supplement/{og_id}_manual_aln.fna'
+        aln = seq_utils.read_alignment(f_aln)
+
+        if i == 0:
+            aln_plot = aln
+        else:
+            aln_plot = aln[:78, 0:301]
+
+        species_grouping = align_utils.sort_aln_rec_ids(aln_plot, pangenome_map, metadata)
+        lw = aln_plot.get_alignment_length() / 50
+        plot_alignment(aln_plot, annotation=species_grouping, annotation_style='lines', marker_size=lw, reference=0, ax=ax)
+        ax.text(-0.05, 1.05, chr(i_ascii + i + 1), fontsize=10, fontweight='bold', va='center', transform=ax.transAxes)
+
+
+    plt.tight_layout()
+    plt.savefig(f'{args.figures_dir}S{fig_count}_rrna_alignments.pdf', dpi=fig_dpi)
+
+    return fig_count + 1
 
 
 ###########################################################
@@ -1205,9 +1287,9 @@ def make_hybridization_qc_figures(pangenome_map, args, low_diversity_cutoff=0.05
     plot_og_presence_model_validation(pangenome_map, low_diversity_ogs, pure_syna_sample_sags, f'{args.figures_dir}S{fig_count}_og_presence_model_fit.pdf')
     fig_count += 1
 
-    '''
     plot_og_presence_tests(pangenome_map, (low_diversity_ogs, high_diversity_ogs), (pure_syna_sample_sags, mixed_syna_sample_sags), f'{args.figures_dir}S{fig_count}_og_presence_tests.pdf')
     fig_count += 1
+    '''
     '''
 
     plot_block_distributions_sample_comparisons('../results/single-cell/supplement/quality_control/', f'{args.figures_dir}S{fig_count}_block_distribution_comparison.pdf')
@@ -1441,23 +1523,24 @@ def plot_og_presence_tests(pangenome_map, og_ids_tuple, sag_ids_tuple, savefig):
     ax = plt.subplot(gspec[0, 0])
     #ymax = 8
     ymax = 1.2
-    ax.text(-0.1, 1.1 * ymax, 'A', fontweight='bold', fontsize=16)
+    #ax.text(-0.1, 1.1 * ymax, 'A', fontweight='bold', fontsize=16)
     #plot_presence_distribution(ax, group1_og_coverage, alpha=0.5, label='mixed species OGs')
     #plot_presence_distribution(ax, group2_og_coverage, alpha=0.5, label='pure species OGs', label_fs=14, legend_fs=10)
     coverage_values = np.concatenate([group1_og_coverage, group2_og_coverage])
     x_bins = np.linspace(np.min(coverage_values) - epsilon, np.max(coverage_values) + epsilon, num_bins)
 
     plot_presence_distribution(ax, group1_og_coverage, alpha=0.5, label='mixed species OGs', x_bins=x_bins, cumulative=True, histtype='step', lw=2)
-    plot_presence_distribution(ax, group2_og_coverage, alpha=0.5, label='pure species OGs', ylabel='cumulative', label_fs=16, legend_fs=10, x_bins=x_bins, cumulative=True, histtype='step', lw=2)
+    plot_presence_distribution(ax, group2_og_coverage, alpha=0.5, label='pure species OGs', ylabel='Cumulative', label_fs=16, legend_fs=10, x_bins=x_bins, cumulative=True, histtype='step', lw=2)
     #ax.set_xlim(0, 1.1)
     ax.set_ylim(-0.02, ymax)
     ax.set_xlim(x_bins[0] - 0.1, x_bins[-1])
     #ax.set_ylim(0.0, ymax)
-    ax.legend(loc='upper left', fontsize=10)
+    ax.legend(loc='upper left', fontsize=10, frameon=False)
+    ax.text(-0.1, 1.1 * ymax, 'A', fontweight='bold', fontsize=10)
 
     ax = plt.subplot(gspec[0, 1])
     ymax = 1.2
-    ax.text(-0.40, 1.1 * ymax, 'B', fontweight='bold', fontsize=16)
+    #ax.text(-0.40, 1.1 * ymax, 'B', fontweight='bold', fontsize=16)
     #z_group1 = group1_og_coverage - np.mean(group2_og_coverage)
     #z_group3 = group3_og_coverage - np.mean(group4_og_coverage)
     mu_group1 = np.mean(group1_og_coverage)
@@ -1466,10 +1549,11 @@ def plot_og_presence_tests(pangenome_map, og_ids_tuple, sag_ids_tuple, savefig):
     z_group3 = group3_og_coverage - np.mean(group3_og_coverage)
     z_values = np.concatenate([z_group1, z_group3])
     x_bins = np.linspace(np.min(z_values) - epsilon, np.max(z_values) + epsilon, num_bins)
-    plot_presence_distribution(ax, z_group1, x_bins=x_bins, alpha=0.5, label=r'$\alpha$ only', ylabel='cumulative', cumulative=True, histtype='step', lw=2)
-    plot_presence_distribution(ax, z_group3, x_bins=x_bins, fit_params=(0, sigma_group1), alpha=0.5, xlabel='mean-centered coverage', ylabel='cumulative', label=r' $\alpha-\beta$ mixed', label_fs=16, legend_fs=10, fit_label=r'$\alpha$ only fit', cumulative=True, histtype='step', lw=2)
+    plot_presence_distribution(ax, z_group1, x_bins=x_bins, alpha=0.5, label=r'$\alpha$ only', ylabel='', cumulative=True, histtype='step', lw=2)
+    plot_presence_distribution(ax, z_group3, x_bins=x_bins, fit_params=(0, sigma_group1), alpha=0.5, xlabel='Mean-centered coverage', ylabel='', label=r' $\alpha-\beta$ mixed', label_fs=16, legend_fs=10, fit_label=r'$\alpha$ only fit', cumulative=True, histtype='step', lw=2)
     ax.set_xlim(x_bins[0] - 0.1, x_bins[-1])
     ax.set_ylim(-0.02, ymax)
+    ax.text(-0.40, 1.1 * ymax, 'B', fontweight='bold', fontsize=10)
     #ax.set_ylim(0.0, ymax)
 
     ks_stat, ks_pvalue = stats.kstest(z_group1, z_group3)
@@ -1518,11 +1602,15 @@ def plot_block_distributions_sample_comparisons(input_dir, savefig):
     ax_label_hratio = 1.15
     ymax = 0.04
     num_blocks_values = bootstrap_results['number of blocks'].values
-    x_bins = np.arange(np.min(num_blocks_values) - 1, np.max(num_blocks_values) + 2, 4)
+    x0 = np.min(num_blocks_values) - 1
+    x1 = np.max(num_blocks_values) + 2
+    #x_bins = np.arange(np.min(num_blocks_values) - 1, np.max(num_blocks_values) + 2, 4)
+    #x_bins = np.arange(np.min(num_blocks_values) - 1, np.max(num_blocks_values) + 2, int((x1 - x0) / 15))
+    x_bins = np.linspace(np.min(num_blocks_values) - 1, np.max(num_blocks_values) + 2, 15)
     plot_presence_distribution(ax, num_blocks_values[1:], x_bins=x_bins, alpha=1.0, xlabel='SNP blocks', label_fs=14)
     ax.set_ylim(0, ymax)
-    ax.annotate('', xy=(num_blocks_values[0], 0.01), xycoords='data', 
-            xytext=(num_blocks_values[0], 0.035),
+    ax.annotate('', xy=(num_blocks_values[0], 0.02), xycoords='data', 
+            xytext=(num_blocks_values[0], 0.03),
             arrowprops=dict(facecolor='black', width=3, headwidth=8),
             horizontalalignment='center', verticalalignment='top',
             )
@@ -1636,8 +1724,8 @@ if __name__ == '__main__':
     #fig_count = 11
     #make_linkage_figures(pangenome_map, args)
     #make_gene_hybridization_figures(pangenome_map, args)
-    #fig_count = 17
-    #make_linkage_block_figures(args)
+    fig_count = 17
+    make_linkage_block_figures(pangenome_map, args)
     #fig_count = 19
     #make_sample_variation_figures(pangenome_map, args)
     fig_count = 21
