@@ -1,0 +1,92 @@
+	locus_tag	CYB_tag	genome_position	aa_length	annotation	trough
+YSG_1452b	purD	CYB_0043	54108-55404	431	phosphoribosylamine--glycine ligase	0
+YSG_0040d	CYB_0332	CYB_0332	349222-350188	321	"transcriptional regulator, LysR family"	1
+YSG_1674	CYB_0333	CYB_0333	350301-351342	346	glycosyl transferase family protein	1
+YSG_0038c	modB	CYB_0398	412729-414517	595	"molybdate ABC transporter, permease protein"	2
+YSG_0739	modA	CYB_0399	414554-415322	255	"molybdate ABC transporter, periplasmic molybdate-binding protein"	2
+YSG_0740	CYB_0401	CYB_0401	415574-415784	69	molybdenum-pterin binding domain protein	2
+YSG_0636	CYB_0402	CYB_0402	415812-417465	550	transcriptional regulator PatB	2
+YSG_0816	CYB_0403	CYB_0403	417807-418065	85	hypothetical protein	2
+YSG_1046	CYB_0404	CYB_0404	418164-418542	125	FeoA domain protein	2
+YSG_0035a	CYB_0405	CYB_0405	418570-418870	99	"ferredoxin, 2Fe-2S"	2
+YSG_0817	nifW	CYB_0406	418912-419278	121	nitrogenase stabilizing/protective protein nifW	2
+YSG_0948	CYB_0407	CYB_0407	419274-419538	87	conserved hypothetical protein	2
+YSG_1297	CYB_0408	CYB_0408	419604-420060	151	conserved hypothetical protein	2
+YSG_1449	nifX	CYB_0409	420062-420482	139	nitrogenase cofactor biosynthesis protein NifX	2
+YSG_0121b	nifN	CYB_0410	420563-421901	445	nitrogenase molybdenum-iron cofactor biosynthesis protein NifN	2
+YSG_0096b	nifE	CYB_0411	421900-423295	464	nitrogenase MoFe cofactor biosynthesis protein NifE	2
+YSG_0741	CYB_0412	CYB_0412	423285-423645	119	putative molybdenum-dependent nitrogenase	2
+YSG_1050	CYB_0413	CYB_0413	423648-423873	74	conserved hypothetical protein	2
+YSG_0145b	dpsA	CYB_0414	423915-424461	181	nutrient-stress induced DNA binding protein	2
+YSG_1399	nifB	CYB_0417	425582-427019	478	nitrogenase cofactor biosynthesis protein NifB	2
+YSG_1247	CYB_0418	CYB_0418	427044-427338	97	"ferredoxin, 4Fe-4S"	2
+YSG_0085c	nifS	CYB_0419	427381-428572	396	cysteine desulfurase	2
+YSG_0192b	nifU	CYB_0420	428628-429567	312	Fe-S cluster assembly protein NifU	2
+YSG_0171b	nifH	CYB_0421	429844-430723	292	nitrogenase iron protein	2
+YSG_0096a	nifD	CYB_0422	430818-432282	487	nitrogenase molybdenum-iron protein alpha chain	2
+YSG_0121a	nifK	CYB_0423	432347-433883	511	nitrogenase molybdenum-iron protein beta chain	2
+YSG_0046b	nifV	CYB_0424	434136-435324	395	homocitrate synthase 1	2
+YSG_0505	CYB_0425	CYB_0425	435313-435463	49	hypothetical protein	2
+YSG_0572	nifZ	CYB_0426	435459-435723	87	NifZ protein	2
+YSG_0506	CYB_0427	CYB_0427	435719-435920	66	NifT/FixU family protein	2
+YSG_0338	CYB_0483	CYB_0483	495353-495920	188	conserved hypothetical protein	3
+YSG_0390	kaiB	CYB_0489	502927-503230	100	circadian clock protein KaiB	3
+YSG_0188a	CYB_0569	CYB_0569	577659-578670	336	"taurine uptake ABC transporter (TauT) family, periplasmic substrate-binding protein"	4
+YSG_0037c	CYB_0571	CYB_0571	579741-580272	176	iron-sulfur cluster-binding protein	4
+YSG_1579	CYB_0573	CYB_0573	581243-581525	93	hypothetical protein	4
+YSG_0538b	clpS-1	CYB_0683	697610-697892	93	ATP-dependent Clp protease adaptor protein ClpS	5
+YSG_1111	CYB_0685	CYB_0685	700144-700504	119	hypothetical protein	5
+YSG_0440	CYB_0753	CYB_0753	776568-776844	91	hypothetical protein	6
+YSG_1538	CYB_0791	CYB_0791	817509-817875	121	conserved domain protein	7
+YSG_1054	CYB_0798	CYB_0798	824572-825922	449	CobQ/CobB/MinD/ParA nucleotide binding domain protein	7
+YSG_1060	CYB_0913	CYB_0913	951190-951475	94	hypothetical protein	8
+YSG_0522	CYB_0915	CYB_0915	952598-953537	312	HflC/HflK family protein	8
+YSG_1274	CYB_0931	CYB_0931	969538-970711	390	"polar amino amino acid ABC transporter (PAAT) family, permease protein"	8
+YSG_0727	CYB_0932	CYB_0932	970809-971847	345	"polar amino amino acid ABC transporter (PAAT) family, periplasmic amino acid-binding protein"	8
+YSG_0009c	CYB_0933	CYB_0933	972110-972899	262	"polar amino amino acid ABC transporter (PAAT) family, ATP-binding protein"	8
+YSG_0478	CYB_1064	CYB_1064	1102132-1102462	109	conserved hypothetical protein	9
+YSG_1464	psaE	CYB_1245	1293384-1293609	74	photosystem I reaction center subunit IV	10
+YSG_0889b	CYB_1351	CYB_1351	1420707-1421019	103	conserved hypothetical protein	11
+YSG_0029a	CYB_1359	CYB_1359	1430707-1431481	257	"ABC transporter, permease protein"	11
+YSG_0874	CYB_1361	CYB_1361	1432668-1433301	210	3'-5' exonuclease family protein	11
+YSG_0745	rpsN	CYB_1362	1433358-1433664	101	ribosomal protein S14	11
+YSG_1320	CYB_1370	CYB_1370	1440738-1441284	181	hypothetical protein	11
+YSG_1729	apcC	CYB_1440	1509599-1509803	67	"phycobilisome 7.8 kDa linker polypeptide, allophycocyanin-associated, core"	12
+YSG_0005j	CYB_1590	CYB_1590	1661585-1662707	373	"carbohydrate uptake ABC transporter-1 (CUT1) family, ATP-binding protein"	13
+YSG_1507	groS	CYB_1619	1692254-1692566	103	"chaperonin, 10 kDa"	14
+YSG_0091c	CYB_1692	CYB_1692	1769172-1769523	116	conserved hypothetical protein	15
+YSG_1477	CYB_1746	CYB_1746	1829256-1829940	227	conserved hypothetical protein TIGR00044	16
+YSG_0009fcb	pstB-2	CYB_1912	1997239-1998037	265	"phosphate ABC transporter, ATP-binding protein"	17
+YSG_0123b	pstA-2	CYB_1913	1998107-1999001	297	"phosphate ABC transporter, permease protein PtsA"	17
+YSG_0136b	pstC-2	CYB_1914	1999039-2000023	327	"phosphate ABC transporter, permease protein PstC"	17
+YSG_0060b	pstS-2	CYB_1915	2000171-2001233	353	"phosphate ABC transporter, phosphate-binding protein"	17
+YSG_0494b	pyrB	CYB_1917	2001750-2002731	326	aspartate carbamoyltransferase	17
+YSG_0676	purB	CYB_1918	2002740-2004036	431	adenylosuccinate lyase	17
+YSG_1096	CYB_1943	CYB_1943	2034748-2035831	360	Tat (twin-arginine translocation) pathway signal sequence domain protein	17
+YSG_0033f	CYB_2011	CYB_2011	2115281-2116046	254	"urea ABC transporter, ATP-binding protein"	18
+YSG_0179a	CYB_2092	CYB_2092	2188901-2189771	289	"HAD-superfamily hydrolase, subfamily IA, variant 3"	19
+YSG_1082	CYB_2267	CYB_2267	2372844-2373354	169	flavodoxin	20
+YSG_1238	CYB_2269	CYB_2269	2374852-2376085	410	putative iron-regulated protein A	20
+YSG_0699	CYB_2270	CYB_2270	2377500-2378175	224	"oxidoreductase, 2OG-Fe(II) oxygenase family"	20
+YSG_0596b	CYB_2272	CYB_2272	2379192-2379525	110	cupin domain protein	20
+YSG_1202	CYB_2291	CYB_2291	2396320-2396470	49	conserved hypothetical protein	20
+YSG_0622	CYB_2344	CYB_2344	2451441-2451693	83	conserved hypothetical protein	21
+YSG_1121	CYB_2523	CYB_2523	2622807-2623209	133	conserved hypothetical protein	22
+YSG_1239	phoU	CYB_2526	2628409-2629051	213	phosphate transport system regulatory protein PhoU	22
+YSG_0972	CYB_2647	CYB_2647	2734922-2735891	322	"aminomethyltransferase, putative"	23
+YSG_0580	CYB_2649	CYB_2649	2737441-2737852	136	conserved hypothetical protein	23
+YSG_0708	CYB_2650	CYB_2650	2737899-2740434	844	conserved hypothetical protein	23
+YSG_0730	glnB	CYB_2704	2793520-2793859	112	nitrogen regulatory protein P-II	24
+YSG_0030ba	CYB_2819	CYB_2819	2921226-2921748	173	fasciclin domain protein	25
+YSG_0204d	CYB_2870	CYB_2870	2968340-2969051	236	isochorismatase family protein	26
+YSG_0347	CYB_2871	CYB_2871	2969370-2969529	52	conserved hypothetical protein	26
+YSG_0415	CYB_2872	CYB_2872	2969531-2970068	178	"acetyltransferase, GNAT family"	26
+YSG_0510	CYB_2873	CYB_2873	2970146-2970437	96	putative pterin-4a-carbinolamine dehydratase	26
+YSG_0427				73		
+YSG_0669	CYA_0679		687173-687296	40	conserved hypothetical protein	
+YSG_0734				296		
+YSG_0810	CYA_2612		2627220-2628156	311	conserved hypothetical protein	
+YSG_0815				157		
+YSG_1086				33		
+YSG_1415				131		
+YSG_1951				75		

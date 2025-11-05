@@ -12,7 +12,8 @@
 
 # no data or figures
 data/
-results/
+results/*
+!results/main_figures_data
 figures/
 
 scripts/make_talk_figures.py
