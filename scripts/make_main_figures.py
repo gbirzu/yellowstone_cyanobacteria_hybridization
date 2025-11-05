@@ -939,7 +939,7 @@ def make_gene_level_figure(pangenome_map, args, rng):
     global fig_count
     print(f'Plotting Fig. {fig_count} panels...\n')
 
-    hybridization_dir = f'{args.results_dir}hybridization/'
+    hybridization_dir = f'{args.data_dir}hybridization/'
     species_cluster_genomes = pd.read_csv(f'{hybridization_dir}labeled_sequence_cluster_genomes.tsv', sep='\t', index_col=0)
     metadata = MetadataMap()
 
@@ -1663,7 +1663,7 @@ def make_snp_level_panels(pangenome_map, args, rng, fig_dpi=1000, panel_label_fs
 
 def plot_alignment_blocks_panel(ax, og_id, pangenome_map, metadata, syna_block_stats, syna_block_haplotypes, args, annot_lw=8, yticks=[], i_ref=0, x0=0, x1=1000):
     #f_aln = f'{args.results_dir}alignments/core_ogs_cleaned/{og_id}_cleaned_aln.fna'
-    f_aln = f'{args.results_dir}alignments/v2/core_ogs_cleaned/{og_id}_cleaned_aln.fna'
+    f_aln = f'{args.data_dir}{og_id}_cleaned_aln.fna'
     aln = seq_utils.read_alignment(f_aln)
     species_grouping = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
     aln_syna = align_utils.get_subsample_alignment(aln, species_grouping['A'])
@@ -1741,7 +1741,8 @@ def highlight_block_haplotype(ax, block_y_index, xi, xf, dy, fill_color, box_lw)
 def plot_block_alignment_panel(ax, i_block, og_id, species, pangenome_map, metadata, block_stats, block_haplotypes, args, ref_id=None, yticklabels=[r'$\alpha_1$', r'$\alpha_2$', r'$\beta$', r'$\gamma$'], grid=False, label_fs=8, aspect='auto'):
 
     # Read alignment
-    f_aln = f'{args.results_dir}alignments/v2/core_ogs_cleaned/{og_id}_cleaned_aln.fna'
+    #f_aln = f'{args.results_dir}alignments/v2/core_ogs_cleaned/{og_id}_cleaned_aln.fna'
+    f_aln = f'{args.data_dir}{og_id}_cleaned_aln.fna'
     aln = align_utils.read_main_cloud_alignment(f_aln, pangenome_map, metadata, dc_dict={'A':0.05, 'Bp':0.05, 'C':0.0})
     species_grouping = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
     aln_species = align_utils.get_subsample_alignment(aln, species_grouping[species])
