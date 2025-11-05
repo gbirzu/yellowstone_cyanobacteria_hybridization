@@ -54,7 +54,7 @@ def make_genome_level_figure(pangenome_map, args, rng, ax_label_size=12, tick_si
     # Reference divergences
     ax = plt.subplot(gspec[0, 0])
     sag_ids = pangenome_map.get_sag_ids()
-    mean_pident, pident_sag_ids, _ = calculate_reference_pident(alignment_dir, metric='mean')
+    mean_pident, pident_sag_ids, _ = calculate_reference_pident(args.alignment_dir, metric='mean')
     mean_pident_filtered = mean_pident[[s in sag_ids for s in pident_sag_ids]]
     plot_ref_divergence_scatter(ax, mean_pident_filtered, fig, annotate=True, distance='divergence', xlabel_stem='Mean OS-A', ylabel_stem="Mean OS-B'", label_size=ax_label_size, tick_size=tick_size, ax_label='A', xticks=[0, 0.05, 0.1, 0.15, 0.2], yticks=[0, 0.05, 0.1, 0.15, 0.2])
 
@@ -287,7 +287,8 @@ def make_linkage_panels(pangenome_map, args, avg_length_fraction=0.75, ms=5, low
 
 def calculate_random_gene_linkage(args, rng, cloud_dict, sites_ext='_all_sites', min_sample_size=20, sample_size=1000):
     random_gene_linkage = {}
-    for species in ['A', 'Bp', 'Bp_subsampled', 'population']:
+    #for species in ['A', 'Bp', 'Bp_subsampled', 'population']:
+    for species in ['A', 'Bp']:
         c = cloud_dict[species]
         if species != 'population':
             gene_pair_results = pickle.load(open(f'{args.linkage_dir}sscs_core_ogs_cleaned_{species}_gene_pair_linkage_c{c}{sites_ext}.dat', 'rb'))
@@ -362,7 +363,8 @@ def plot_linkage_decay(random_gene_linkage, metadata, cloud_dict, label_dict, co
             linkage_avg = np.nanmean(gene_pair_linkage[:, 0, :], axis=0)
             control_avg = np.nanmean(gene_pair_linkage[:, 1, :], axis=0)
             ax1.scatter(7.0E3, linkage_avg[0], s=20, fc='none', ec=color_dict[species], marker=marker_dict[species])
-            ax1.scatter(7.0E3, control_avg[0], s=40, fc='none', ec=color_dict[species], marker='_', lw=2) # plot control
+            #ax1.scatter(7.0E3, control_avg[0], s=40, fc='none', ec=color_dict[species], marker='_', lw=2) # plot control
+            ax1.scatter(7.0E3, control_avg[0], s=40, fc='none', ec=color_dict[species], marker='+', lw=1.0) # plot control
 
     ax1.axvline(3E3, ls='--', c='k')
     ax1.legend(fontsize=10, frameon=False)
@@ -649,7 +651,7 @@ def make_genetic_diversity_figure(pangenome_map, args, low_diversity_cutoff=0.05
     syna_num_site_alleles['num_snps'] = syna_num_site_alleles[['2', '3', '4']].sum(axis=1)
     syna_num_site_alleles['piS'] = gene_diversity_table.loc[syna_num_site_alleles.index.values, 'A_pS_mean']
 
-    plot_gene_polymorphisms_axis(ax, syna_num_site_alleles, low_diversity_ogs, high_diversity_ogs, metadata, rng, args, label_fs=12)
+    plot_gene_polymorphisms_axis(ax, syna_num_site_alleles, low_diversity_ogs, high_diversity_ogs, metadata, rng, args, label_fs=12, color='tab:orange')
     ax.set_xticks([0, 0.25, 0.5, 0.75, 1])
 
     syna_num_site_alleles_all_sites = pd.read_csv(f'{args.data_dir}A_num_site_alleles_all_sites.tsv', sep='\t', index_col=0)
@@ -761,7 +763,7 @@ def plot_species_diversity_along_genome(ax, gene_diversity_table, metadata, spec
         ax.fill_between(x_smooth, y_min, y_max, color=sample_color, **plot_kwargs)
 
 
-def plot_gene_polymorphisms_axis(ax, num_site_alleles, low_diversity_ogs, high_diversity_ogs, metadata, rng, args, species='A', low_diversity_cutoff=0.05, ms=3, inset=True, fit='zero', label_fs=14):
+def plot_gene_polymorphisms_axis(ax, num_site_alleles, low_diversity_ogs, high_diversity_ogs, metadata, rng, args, species='A', low_diversity_cutoff=0.05, ms=3, inset=True, fit='zero', label_fs=14, **kwargs):
     # Get alpha SAG IDs
     species_sorted_sags = metadata.sort_sags(pangenome_map.get_sag_ids(), by='species')
     species_sag_ids = species_sorted_sags[species]
@@ -772,10 +774,10 @@ def plot_gene_polymorphisms_axis(ax, num_site_alleles, low_diversity_ogs, high_d
     ax.set_yscale('log')
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
-    plot_polymorphic_sites_null_comparison(ax, num_site_alleles, low_diversity_ogs, species_sag_ids, rng, xmax=1., num_bins=100, add_null=True, density=False, label=label_dict[species], low_diversity_cutoff=low_diversity_cutoff, inset=inset, fit=fit)
+    plot_polymorphic_sites_null_comparison(ax, num_site_alleles, low_diversity_ogs, species_sag_ids, rng, xmax=1., num_bins=100, add_null=True, density=False, label=label_dict[species], low_diversity_cutoff=low_diversity_cutoff, inset=inset, fit=fit, **kwargs)
 
 
-def plot_polymorphic_sites_null_comparison(ax, num_site_alleles, low_diversity_ogs, syna_sag_ids, rng, og_ids=None, label='data', xmax=1., num_bins=30, low_diversity_cutoff=0.05, ms=3, add_null=True, density=True, null_color='k', inset=True, fit='zero'):
+def plot_polymorphic_sites_null_comparison(ax, num_site_alleles, low_diversity_ogs, syna_sag_ids, rng, og_ids=None, label='data', xmax=1., num_bins=30, low_diversity_cutoff=0.05, ms=3, add_null=True, density=True, null_color='k', inset=True, fit='zero', **kwargs):
     if og_ids is None:
         # Use all loci
         og_ids = num_site_alleles.index.values
@@ -784,7 +786,7 @@ def plot_polymorphic_sites_null_comparison(ax, num_site_alleles, low_diversity_o
     p_fixed = num_site_alleles.loc[og_ids, '1'].sum() / num_site_alleles.loc[og_ids, 'L'].sum()
     theta = -np.log(p_fixed)
     x_bins = np.linspace(0, xmax, num_bins)
-    ax.hist(num_site_alleles.loc[og_ids, 'fraction_polymorphic'], bins=x_bins, density=density, label=label)
+    ax.hist(num_site_alleles.loc[og_ids, 'fraction_polymorphic'], bins=x_bins, density=density, label=label, **kwargs)
 
     hist, _ = np.histogram(num_site_alleles.loc[og_ids, 'fraction_polymorphic'], bins=x_bins)
     y_max = np.max(hist)
@@ -799,7 +801,7 @@ def plot_polymorphic_sites_null_comparison(ax, num_site_alleles, low_diversity_o
         ax_inset.spines['right'].set_visible(False)
         ax_inset.spines['top'].set_visible(False)
         x_bins_inset = np.linspace(0, low_diversity_cutoff, 30)
-        ax_inset.hist(num_site_alleles.loc[low_diversity_ogs, 'fraction_polymorphic'], bins=x_bins_inset, density=True, color='tab:blue', label=r'$\alpha$')
+        ax_inset.hist(num_site_alleles.loc[low_diversity_ogs, 'fraction_polymorphic'], bins=x_bins_inset, density=True, color='tab:orange', label=r'$\alpha$')
 
     # Add null
     if add_null:
@@ -865,15 +867,16 @@ def make_gene_cluster_figure(pangenome_map, args):
     metadata = MetadataMap()
 
     fig = plt.figure(figsize=(double_col_width, 1.8 * single_col_width))
+    
     ax = fig.add_subplot(311)
     ax.text(-0.05, 1.05, 'A', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
     ax.text(-0.05, 0.65, r'$\boldsymbol{\beta}$', color='tab:blue', transform=ax.transAxes, fontsize=14, va='center')
     ax.text(-0.05, 0.35, r'$\boldsymbol{\gamma}$', color='tab:green', transform=ax.transAxes, fontsize=14, va='center')
     ax.text(-0.05, 0.12, r'$\boldsymbol{\alpha}$', color='tab:orange', transform=ax.transAxes, fontsize=14, va='center')
-    aln = seq_utils.read_alignment('../results/tests/main_figures_data/YSG_0316_plot_aln.fna')
+    aln = seq_utils.read_alignment(f'{args.data_dir}YSG_0316_plot_aln.fna')
     species_grouping = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
     plot_alignment(aln, annotation=species_grouping, annotation_style='lines', marker_size=4, reference='closest_to_consensus', fig_dpi=1000, ax=ax)
-    ax.set_title('No hybrid genes', fontsize=14)
+    ax.set_title('Non-hybrid gene', fontsize=14)
 
     ax = fig.add_subplot(312)
     ax.text(-0.05, 1.05, 'B', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
@@ -886,10 +889,21 @@ def make_gene_cluster_figure(pangenome_map, args):
     ax.text(-0.03, y2, r'$\boldsymbol{\beta}$', color='tab:blue', transform=ax.transAxes, fontsize=14, va='center', ha='center')
     ax.text(-0.05, 0.05, r'$\boldsymbol{\alpha}$', color='tab:orange', transform=ax.transAxes, fontsize=14, va='center')
 
-    aln = seq_utils.read_alignment('../results/tests/main_figures_data/YSG_0264c_plot_aln_v2.fna')
+    aln = seq_utils.read_alignment(f'{args.data_dir}YSG_0264c_plot_aln.fna')
     species_grouping = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
     plot_alignment(aln, annotation=species_grouping, annotation_style='lines', marker_size=4, reference='closest_to_consensus', fig_dpi=1000, ax=ax)
-    ax.set_title('Simple hybrid genes', fontsize=14)
+
+    gene_ids = np.array([rec.id for rec in aln])
+    gene_species_dict = make_gene_species_dict(gene_ids, species_grouping)
+
+    # Highlight simple hybrids
+    species_idx = np.array([gene_species_dict[g] for g in gene_ids])
+    syna_block_idx = np.arange(len(gene_ids))[species_idx == 'A'][:3]
+    synbp_block_idx = np.arange(len(gene_ids))[species_idx == 'Bp'][-2:]
+    highlight_block_haplotype(ax, syna_block_idx, 0, aln.get_alignment_length(), -0.5, open_colors['blue'][5], 0.1)
+    highlight_block_haplotype(ax, synbp_block_idx, 0, aln.get_alignment_length(), -0.5, open_colors['orange'][5], 0.1)
+
+    ax.set_title('Simple hybrid gene', fontsize=14)
 
     ax = fig.add_subplot(313)
     ax.text(-0.05, 1.05, 'C', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
@@ -898,10 +912,18 @@ def make_gene_cluster_figure(pangenome_map, args):
     ax.text(-0.05, 0.15, r'$\boldsymbol{\alpha}$', color='tab:orange', transform=ax.transAxes, fontsize=14, va='center', ha='center')
     ax.annotate(r'', xy=(-0.05, 0.48), xytext=(-0.05, 0.65), arrowprops=dict(arrowstyle='<->', shrinkA=1, shrinkB=1), textcoords=ax.transAxes, xycoords=ax.transAxes, ha='center')
     ax.annotate(r'', xy=(-0.05, 0.37), xytext=(-0.05, 0.19), arrowprops=dict(arrowstyle='<->', shrinkA=1, shrinkB=1), textcoords=ax.transAxes, xycoords=ax.transAxes, ha='center')
-    aln = seq_utils.read_alignment('../results/tests/main_figures_data/YSG_1125_plot_aln_v2.fna')
+    aln = seq_utils.read_alignment(f'{args.data_dir}YSG_1125_plot_aln.fna')
     species_grouping = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
     plot_alignment(aln, annotation=species_grouping, annotation_style='lines', marker_size=4, reference='closest_to_consensus', fig_dpi=1000, ax=ax)
-    ax.set_title('Mosaic hybrid genes', fontsize=14)
+    ax.set_title('Mosaic hybrid gene', fontsize=14)
+
+    # Add manual highlight of hybrid segments
+    block_idx = np.arange(len(aln))
+    highlight_block_haplotype(ax, block_idx, 0, 20, -0.5, open_colors['grape'][4], 0.1)
+    highlight_block_haplotype(ax, block_idx, 80, 167, -0.5, open_colors['grape'][4], 0.1)
+    highlight_block_haplotype(ax, block_idx, 200, 215, -0.5, open_colors['grape'][4], 0.1)
+    highlight_block_haplotype(ax, block_idx, 250, 262, -0.5, open_colors['grape'][4], 0.1)
+
 
     plt.tight_layout()
     plt.savefig(f'{args.figures_dir}fig{fig_count}_og_clusters.pdf')
@@ -909,6 +931,20 @@ def make_gene_cluster_figure(pangenome_map, args):
     print_break()
 
     fig_count += 1
+
+
+def make_gene_species_dict(gene_ids, species_grouping):
+    gene_species_dict = {}
+    for g in gene_ids:
+        if g in species_grouping['A']:
+            gene_species_dict[g] = 'A'
+        elif g in species_grouping['Bp']:
+            gene_species_dict[g] = 'Bp'
+        elif g in species_grouping['C']:
+            gene_species_dict[g] = 'C'
+        else:
+            gene_species_dict[g] = ''
+    return gene_species_dict
 
 
 ###########################################################
@@ -990,7 +1026,7 @@ def make_gene_level_figure(pangenome_map, args, rng):
         ax = fig.add_subplot(111)
 
         # Plot alignment
-        f_aln = f'{args.results_dir}alignments/v2/core_ogs_cleaned/{og_id}_cleaned_aln.fna'
+        f_aln = f'{args.data_dir}{og_id}_cleaned_aln.fna'
         aln = seq_utils.read_alignment(f_aln)
         species_grouping = align_utils.sort_aln_rec_ids(aln, pangenome_map, metadata)
 
@@ -1338,6 +1374,7 @@ def plot_hybrid_diversity_comparison(pangenome_map, metadata, syna_num_site_alle
             locus_clusters = species_cluster_genomes.loc[g, species_sorted_sags['A']]
             hybrid_cluster_sag_ids = locus_clusters[locus_clusters == hybrid_cluster].index.values
             f_pdist = f'{args.pangenome_dir}pdist/{g}_cleaned_pS.dat'
+            #f_pdist = f'{args.data_dir}{g}_cleaned_pS.dat'
             pS = pickle.load(open(f_pdist, 'rb'))
             pS_mapped = seq_utils.map_pdist_to_sags(pS, pangenome_map, False)
             pS_hybrid = pS_mapped.loc[hybrid_cluster_sag_ids, hybrid_cluster_sag_ids]
@@ -2018,8 +2055,9 @@ def calculate_rsq(block_haplotypes, randomize=False, rng=None):
 if __name__ == '__main__':
     # Default variables
     alignment_dir = '../results/single-cell/reference_alignment/'
-    figures_dir = '../figures/main_text/v5/'
-    pangenome_dir = '../results/single-cell/sscs_pangenome_v2/'
+    figures_dir = '../figures/main_text/'
+    #pangenome_dir = '../results/single-cell/sscs_pangenome_v2/'
+    pangenome_dir = '../results/single-cell/sscs_pangenome/'
     results_dir = '../results/single-cell/'
     data_dir = '../results/single-cell/main_figures_data/'
     metagenome_dir = '../results/metagenome/'
@@ -2029,7 +2067,8 @@ if __name__ == '__main__':
     parser.add_argument('-A', '--alignment_dir', default=alignment_dir, help='Directory BLAST alignments against refs.')
     parser.add_argument('-D', '--data_dir', default=data_dir, help='Directory with data for main figures.')
     parser.add_argument('-F', '--figures_dir', default=figures_dir, help='Directory where figures are saved.')
-    parser.add_argument('-L', '--linkage_dir', default='../results/single-cell/supplement/')
+    #jparser.add_argument('-L', '--linkage_dir', default='../results/single-cell/supplement/')
+    parser.add_argument('-L', '--linkage_dir', default=f'{results_dir}linkage/')
     parser.add_argument('-M', '--metagenome_dir', default=metagenome_dir, help='Directory with results for metagenome.')
     parser.add_argument('-P', '--pangenome_dir', default=pangenome_dir, help='Pangenome directory.')
     parser.add_argument('-R', '--results_dir', default=results_dir, help='Main results directory.')
@@ -2040,6 +2079,7 @@ if __name__ == '__main__':
     random_seed = 12345
     rng = np.random.default_rng(random_seed)
     pangenome_map = pg_utils.PangenomeMap(f_orthogroup_table=f_orthogroup_table)
+
     make_genome_level_figure(pangenome_map, args, rng)
     make_linkage_panels(pangenome_map, args)
     make_genetic_diversity_figure(pangenome_map, args)

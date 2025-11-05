@@ -14,6 +14,7 @@ import make_revision_main_figures as main_figs
 import er2
 import scipy.stats as stats
 import matplotlib.transforms as mtransforms
+import mcorr_fit
 from analyze_metagenome_reads import strip_sample_id, strip_target_id, plot_abundant_target_counts
 from syn_homolog_map import SynHomologMap
 from metadata_map import MetadataMap
@@ -476,7 +477,7 @@ def make_metagenome_recruitment_figures(pangenome_map, args, num_loci=100):
     plt.tight_layout(pad=1.5)
     plt.savefig(f'{args.figures_dir}S{fig_count}_species_abundances.pdf')
     plt.close()
-    fig_count += 1
+    fig_count += 4
 
 
 def plot_correlation_across_loci(num_loci, args, savefig):
@@ -581,6 +582,8 @@ def plot_species_frequency_across_samples(ax, species_abundances, fig, lw=0.8, t
 def make_linkage_figures(pangenome_map, args, avg_length_fraction=0.75, ax_label_size=14, ms=5):
     global fig_count
 
+    metadata = MetadataMap()
+
     # Set up style dicts
     color_dict = {'A':'tab:orange', 'Bp':'tab:blue', 'Bp_subsampled':'gray', 'population':'k'}
     label_dict = {'A':r'$\alpha$', 'Bp':r'$\beta$', 'Bp_subsampled':r'$\beta$ (subsampled)', 'population':r'whole population'}
@@ -679,6 +682,31 @@ def make_linkage_figures(pangenome_map, args, avg_length_fraction=0.75, ax_label
     fig_count += 1
 
 
+    # SAG coverage figure
+    plot_sag_coverages(pangenome_map, metadata, savefig=f'{args.figures_dir}S{fig_count}_sag_coverage.pdf')
+    fig_count += 1
+
+    # ClonalFrameML results
+    recomb_df = pd.read_csv(f'{args.results_dir}supplement/clonal_frame_ml_Bp_results.importation_status.txt', sep='\t')
+    params = pd.read_csv(f'{args.results_dir}supplement/clonal_frame_ml_Bp_results.em.txt', sep='\t', index_col=0)
+    plot_recombination_length_distribution(recomb_df, params, savefig=f'{args.figures_dir}S{fig_count}_clonal_frame_recomb_lengths.pdf')
+    fig_count += 1
+
+    # mcorr results
+    A_corr_df = pd.read_csv(f'{args.results_dir}supplement/A_correlation_profile_b150.csv') # best fit A profile
+    Bp_corr_df = pd.read_csv(f'{args.results_dir}supplement/Bp_correlation_profile_b835.csv') # best fit Bp profile
+    print(A_corr_df)
+
+    fig = plt.figure(figsize=(double_col_width, single_col_width))
+    gs = gridspec.GridSpec(2, 2, height_ratios=[3, 1], hspace=0)
+    gssub = gs[:, 0].subgridspec(2, 1, height_ratios=[3, 1], hspace=0)
+    plot_mcorr_results(A_corr_df, gssub, ec='tab:orange', label=r'$\alpha$ data', ax_label='A')
+    gssub = gs[:, 1].subgridspec(2, 1, height_ratios=[3, 1], hspace=0)
+    plot_mcorr_results(Bp_corr_df, gssub, ec='tab:blue', label=r'$\beta$ data', ax_label='B')
+    fig.tight_layout()
+    fig.savefig(f'{args.figures_dir}S{fig_count}_mcorr_fit.pdf')
+    plt.close()
+    fig_count += 1
 
 
 def plot_linkage_depth_control(cloud_dict, color_dict, label_dict, marker_dict, args, avg_length_fraction=0.75, ms=5, savefig=None):
@@ -765,6 +793,131 @@ def get_random_gene_linkage(args, rng, cloud_dict, min_sample_size=20, sample_si
     return random_gene_linkage
 
 
+def plot_sag_coverages(pangenome_map, metadata, savefig=None, f_cutoff=0.75):
+    sag_ids = pangenome_map.get_sag_ids()
+
+    # Get total coverage for SAGs
+    bp_covered = []
+    for s in sag_ids:
+        contigs = pangenome_map.cell_contigs[s]
+        bp = 0
+        for c in contigs:
+            c_rec = pangenome_map.contig_records[c]
+            bp += len(c_rec)
+        bp_covered.append(bp)
+
+    coverage_df = pd.Series(bp_covered, index=sag_ids)
+    species_sorted_sag_ids = metadata.sort_sags(sag_ids, by='species')
+    species_labels = {'A':r'$\alpha$', 'Bp':r'$\beta$', 'C':r'$\gamma$'}
+    species_colors = {'A':'tab:orange', 'Bp':'tab:blue', 'C':'tab:green'}
+    species_genome_sizes = {'A':utils.osa_genome_size, 'Bp':utils.osbp_genome_size}
+    high_coverage_sags = {}
+
+    fig = plt.figure(figsize=(double_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel('SAG index', fontsize=14)
+    ax.set_ylabel('SAG coverage (bp)', fontsize=14)
+    ax.set_xlim(-1, len(sag_ids) + 1)
+    #ax.set_ylim(0, 1.2 * species_genome_sizes['Bp'])
+
+    i0 = 0
+    x = np.arange(len(sag_ids))
+    for sp in ['A', 'Bp', 'C']:
+        sp_sags = species_sorted_sag_ids[sp]
+        n_sp = len(sp_sags)
+        ax.bar(x[i0:i0 + n_sp], np.sort(coverage_df[sp_sags])[::-1], color=species_colors[sp], label=species_labels[sp])
+        i0 += len(sp_sags)
+
+        if sp in species_genome_sizes:
+            L = species_genome_sizes[sp]
+            ax.axhline(f_cutoff * L, lw=2, ls='--', c=species_colors[sp])
+            high_coverage_sags[sp] = coverage_df[sp_sags].index.values[coverage_df[sp_sags] > f_cutoff * L]
+    print(coverage_df)
+    print(f'Coverage:\n\t{(np.mean(coverage_df.astype(float))/3e+6):.3f} +- {(np.std(coverage_df.astype(float))/3e+6):.3f}\n\t{(np.min(coverage_df.astype(float))/3e+6):.3f}-{(np.max(coverage_df.astype(float))/3e+6):.3f}')
+    #print(f'Coverage:\n\t{(np.mean(coverage_df.astype(float))/3e+6):.3f} +- {(np.std(coverage_df.astype(float))/3e+6):.3f)}')
+    #print(f'Coverage:\n\t{(np.mean(coverage_df.astype(float))/3e+6):.3f}')
+    #print(f'Coverage:\n\t{(np.std(coverage_df.astype(float))/3e+6):3f}')
+
+    ax.axhline(species_genome_sizes['A'], lw=1, c=species_colors['A'], label='OS-A')
+    ax.axhline(species_genome_sizes['Bp'], lw=1, c=species_colors['Bp'], label="OS-B'")
+
+    ax.legend(loc='center right', fontsize=10, frameon=True)
+    plt.tight_layout()
+    if savefig is not None:
+        plt.savefig(savefig)
+
+    return high_coverage_sags
+
+def plot_recombination_length_distribution(recomb_df, params, savefig, bins=100):
+    recomb_df['Length'] = recomb_df['End'] - recomb_df['Beg'] + 1
+
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel('Inferred segment length', fontsize=14)
+    ax.set_ylabel('Probability density', fontsize=14)
+    ax.set_yscale('log')
+    ax.hist(recomb_df['Length'].values, bins=bins, density=True)
+
+    delta = 1. / params.loc['1/delta', 'Posterior Mean']
+    x = np.linspace(0, 10 * delta, 100)
+    ax.plot(x, np.exp(-x / delta) / delta, '-k', lw=1)
+    print(delta, recomb_df['Length'].mean())
+
+    plt.tight_layout()
+    plt.savefig(savefig)
+
+
+def plot_mcorr_results(corr_df, gs, ec='k', label='data', ax_label=None):
+    b = corr_df.loc[0, 'b']
+    d_s = corr_df.loc[0, 'm']
+    xvalues, yvalues = corr_df.loc[1:, ['l', 'm']].values.T
+    fit_res = mcorr_fit.fit_model(xvalues, yvalues, d_s, mcorr_fit.const_r1)
+    fit_data = FitData(xvalues, yvalues, d_s)
+    plot_mcorr_fit(fit_data, fit_res, gs, ec=ec, label=label, ax_label=ax_label)
+
+class FitData:
+    '''Base class for collecting mcorr results'''
+    def __init__(self, xvalues=None, yvalues=None, d_sample=None):
+        self.xvalues = xvalues
+        self.yvalues = yvalues
+        self.d_sample = d_sample
+
+
+def plot_mcorr_fit(fitdata, fitres, gs, title=None, ec='k', label='data', ax_label=None):
+    """Fit all row data and do plotting for the full-recombination model"""
+    xvalues = fitdata.xvalues
+    yvalues = fitdata.yvalues
+
+    ax1 = plt.subplot(gs[0, 0])
+    #ax1 = plt.subplot(gs[0])
+    ax1.scatter(xvalues, yvalues, s=20, facecolors='none', edgecolors=ec, label=label)
+    predictions = yvalues + fitres.residual
+    ax1.plot(xvalues, predictions, 'k', label='mcorr fit')
+    ax1.set_ylabel(r'Correlation profile, $P$', fontsize=12)
+    if np.min(yvalues) != np.max(yvalues):
+        ax1.set_ylim([np.min(yvalues)*0.9, np.max(yvalues)*1.1])
+    ax1.locator_params(axis='x', nbins=5)
+    ax1.locator_params(axis='y', nbins=5)
+    plt.setp(ax1.get_xticklabels(), visible=False)
+    ax1.legend(frameon=False, fontsize=12)
+
+    ax1.text(-0.2, 1.1, ax_label, transform=ax1.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+    if title: plt.title(title, loc="left")
+
+    ax2 = plt.subplot(gs[1, 0])
+    #ax2 = plt.subplot(gs[1])
+    markerline, _, _ = ax2.stem(xvalues,
+                                fitres.residual,
+                                linefmt='k-',
+                                basefmt='r-',
+                                markerfmt='ko')
+    ax2.set_xlabel(r'Distance, $l$', fontsize=12)
+    ax2.set_ylabel("Residual", fontsize=12)
+    ax2.locator_params(axis='x', nbins=5)
+    plt.setp(markerline, "markersize", 4)
+
+
+
 ###########################################################
 # Gene hybridization figures
 ###########################################################
@@ -785,6 +938,7 @@ def make_gene_hybridization_figures(pangenome_map, args):
 
     bins = [len(nonhybrid_og_ids), len(mosaic_og_ids), len(singleton_hybrid_og_ids), len(nonsingleton_hybrid_og_ids)]
     bin_labels = [f'no gene\nhybrids ({bins[0]})', f'mixed\nclusters ({bins[1]})', f'singleton\nhybrids ({bins[2]})', f'non-singleton\nhybrids ({bins[3]})']
+    print(f'Random choice of non-hybrid OG IDs: {np.random.choice(nonhybrid_og_ids, 10)}')
 
     fig = plt.figure(figsize=(single_col_width, single_col_width))
     ax = fig.add_subplot(111)
@@ -838,7 +992,14 @@ def make_gene_hybridization_figures(pangenome_map, args):
 
     # Plot cluster pdist distribution
     og_table = pangenome_map.og_table
-    plot_pdist_distributions(og_table, args, f'{args.figures_dir}S{fig_count}_orthogroup_pdist_distribution.pdf')
+    clustered_og_table = pd.read_csv(f'{args.pangenome_dir}filtered_low_copy_clustered_orthogroup_table.tsv', sep='\t', index_col=0)
+    #plot_pdist_distributions(og_table, args, f'{args.figures_dir}S{fig_count}A_orthogroup_pdist_distribution.pdf')
+    #plot_species_clusters_distribution(clustered_og_table, args, f'{args.figures_dir}S{fig_count}B_species_clusters.pdf')
+    #fig_count += 1
+
+    plot_species_cluster_figure(og_table, clustered_og_table, args, f'{args.figures_dir}S{fig_count}_orthogroup_clusters.pdf')
+    fig_count += 1
+
 
     main_figs.print_break()
 
@@ -910,6 +1071,83 @@ def plot_pdist_distributions(og_table, args, savefig):
     print(f'Number of unique orthogroups: {len(og_table.parent_og_id.unique())}')
 
 
+def plot_species_cluster_figure(og_table, clustered_og_table, args, savefig):
+    pdist_values = []
+    for o in og_table['parent_og_id'].unique():
+        pdist_df = pickle.load(open(f'{args.pangenome_dir}pdist/{o}_trimmed_pdist.dat', 'rb'))
+        pdist_values.append(utils.get_matrix_triangle_values(pdist_df.values, k=1))
+
+    fig = plt.figure(figsize=(double_col_width, 0.8 * single_col_width))
+    
+    # Orthogroup pdist distribution
+    ax = fig.add_subplot(121)
+    ax.text(-0.2, 1.05, 'A', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+    ax.set_xlabel('Pairwise distance, $\pi_{ij}$', fontsize=14)
+    ax.set_ylabel('Probability density', fontsize=14)
+    ax.hist(np.concatenate(pdist_values), bins=100, density=True)
+    ax.axvline(0.075, lw=2, ls='--', c='tab:red')
+
+    # Remove axis borders
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+    # Number of species clusters
+    parent_ids, parent_counts = utils.sorted_unique(clustered_og_table['parent_og_id'].values)
+    x, y = utils.sorted_unique(parent_counts, sort='ascending')
+    ax = fig.add_subplot(122)
+    ax.text(-0.2, 1.05, 'B', transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+    ax.set_xlabel('Species clusters', fontsize=14)
+    ax.set_ylabel('Orthogroups', fontsize=14)
+    ax.set_yscale('log')
+    ax.set_ylim(8E-1, 1.5 * np.max(y))
+    ax.plot(x, y, '-o', lw=2, ms=6, mfc='none', mec='tab:blue')
+
+    # Remove axis borders
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+    if args.verbose:
+        print(f'Number of unique orthogroups: {len(og_table.parent_og_id.unique())}')
+        print('Species cluster distribution:')
+        counts, hist = utils.sorted_unique(parent_counts, sort='ascending', sort_by='tag')
+        print(f'Counts: {counts}')
+        print(f'Number of clusters: {hist}; total: {np.sum(hist)}')
+        print(f'Fraction of clusters: {hist / np.sum(hist)}')
+        print('\n')
+
+    plt.tight_layout()
+    plt.savefig(savefig)
+    plt.close()
+
+
+def plot_species_clusters_distribution(clustered_og_table, args, savefig):
+    parent_ids, parent_counts = utils.sorted_unique(clustered_og_table['parent_og_id'].values)
+
+
+    # Plot OG species clusters
+    x, y = utils.sorted_unique(parent_counts, sort='ascending')
+    fig = plt.figure(figsize=(single_col_width, 0.8 * single_col_width))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel('species clusters', fontsize=14)
+    ax.set_ylabel('number of orthogroups', fontsize=14)
+    ax.set_yscale('log')
+    ax.set_ylim(8E-1, 1.5 * np.max(y))
+    ax.plot(x, y, '-o', lw=2, ms=6, mfc='none', mec='tab:blue')
+    plt.tight_layout()
+    #plt.savefig(f'{args.figures_dir}{args.fhead}species_clusters_distribution.pdf')
+    plt.savefig(savefig)
+    plt.close()
+
+    if args.verbose:
+        print('Species cluster distribution:')
+        counts, hist = utils.sorted_unique(parent_counts, sort='ascending', sort_by='tag')
+        print(f'Counts: {counts}')
+        print(f'Number of clusters: {hist}; total: {np.sum(hist)}')
+        print(f'Fraction of clusters: {hist / np.sum(hist)}')
+        print('\n')
+
+
+
 ###########################################################
 # Linkage block figures
 ###########################################################
@@ -920,18 +1158,34 @@ def make_linkage_block_figures(pangenome_map, args):
 
     metadata = MetadataMap()
 
-    plot_dNdS_histograms(args, num_bins=50, p_cutoff=0.70, savefig=f'{args.figures_dir}S{fig_count}_block_dNdS.pdf')
+    plot_dNdS_histograms(metadata, args, num_bins=50, p_cutoff=0.70, savefig=f'{args.figures_dir}S{fig_count}_block_dNdS.pdf')
     fig_count += 1
 
     plot_block_length_histogram(args, num_bins=50, savefig=f'{args.figures_dir}S{fig_count}_block_lengths.pdf')
     fig_count += 1
 
     plot_rrna_alignments(pangenome_map, metadata, args, fig_count)
+    fig_count += 1
 
     main_figs.print_break()
        
 
-def plot_dNdS_histograms(args, num_bins=50, p_cutoff=0.6, legend_fs=12, savefig=None):
+def plot_dNdS_histograms(metadata, args, num_bins=50, p_cutoff=0.6, legend_fs=12, savefig=None):
+    # Calculate species average pN and pS
+    d_arr_raw, core_og_ids, sag_ids = pickle.load(open(f'{args.results_dir}main_figures_data/pS_array.dat', 'rb'))
+    species_sorted_sag_ids = metadata.sort_sags(sag_ids, by='species')
+    A_idx = np.arange(len(sag_ids))[np.isin(sag_ids, species_sorted_sag_ids['A'])]
+    Bp_idx = np.arange(len(sag_ids))[np.isin(sag_ids, species_sorted_sag_ids['Bp'])]
+    pS_ABp = np.nanmean(d_arr_raw[:, A_idx, :][:, :, Bp_idx])
+    dS_ABp = align_utils.calculate_divergence(pS_ABp)
+
+    d_arr_raw, core_og_ids, sag_ids = pickle.load(open(f'{args.results_dir}main_figures_data/pN_array.dat', 'rb'))
+    A_idx = np.arange(len(sag_ids))[np.isin(sag_ids, species_sorted_sag_ids['A'])]
+    Bp_idx = np.arange(len(sag_ids))[np.isin(sag_ids, species_sorted_sag_ids['Bp'])]
+    pN_ABp = np.nanmean(d_arr_raw[:, A_idx, :][:, :, Bp_idx])
+    dN_ABp = align_utils.calculate_divergence(pN_ABp)
+
+
     fig = plt.figure(figsize=(double_col_width, single_col_width))
 
     # Analyze main allele divergences
@@ -953,12 +1207,17 @@ def plot_dNdS_histograms(args, num_bins=50, p_cutoff=0.6, legend_fs=12, savefig=
         x_bins = np.linspace(0, max([np.max(dS), np.max(dN)]), num_bins)
         ax.hist(dN, bins=x_bins, alpha=0.6, label=f'$d_N$')
         ax.hist(dS, bins=x_bins, alpha=0.6, label=f'$d_S$')
+        #ax.hist(dN, bins=x_bins, histtype='step', lw=2, alpha=1.0, label=f'$d_N$')
+        #ax.hist(dS, bins=x_bins, histtype='step', lw=2, alpha=1.0, label=f'$d_S$')
 
         # Get max histogram value
         dN_hist, _ = np.histogram(dN, bins=x_bins)
         dS_hist, _ = np.histogram(dS, bins=x_bins)
         #ax.text(-0.2, 1.1 * max(np.max(dS_hist), np.max(dN_hist)), ax_labels[i], fontsize=14, fontweight='bold', va='bottom')
         ax.text(-0.2, 1.05, ax_labels[i], transform=ax.transAxes, fontsize=10, fontweight='bold', va='center', usetex=False)
+
+        ax.axvline(dN_ABp, lw=2.0, color='tab:blue', label=r'$\alpha-\beta$ $d_N$')
+        ax.axvline(dS_ABp, lw=2.0, color='tab:orange', label=r'$\alpha-\beta$ $d_S$')
         ax.legend(frameon=False, fontsize=legend_fs)
 
         ax.spines['right'].set_visible(False)
@@ -998,7 +1257,7 @@ def plot_block_length_histogram(args, num_bins=50, legend_fs=12, savefig=None):
     ax.spines['top'].set_visible(False)
 
     ax = fig.add_subplot(122)
-    ax.set_xlabel('Block length (bp)', fontsize=14)
+    ax.set_xlabel('Block length (SNPs)', fontsize=14)
     ax.set_ylabel('SNP blocks', fontsize=14)
     ax.set_yscale('log')
     x_bins = np.arange(0, 40)
@@ -1041,6 +1300,11 @@ def plot_rrna_alignments(pangenome_map, metadata, args, fig_count, fig_dpi=1000)
     ax.set_xticks(xticks)
     ax.set_xticklabels(xticklabels)
 
+    # Manually highlight mosaic regions
+    block_idx = np.arange(len(aln_plot))
+    main_figs.highlight_block_haplotype(ax, block_idx, 150, 390, -0.5, open_colors['grape'][4], 0.1)
+    main_figs.highlight_block_haplotype(ax, block_idx, 870, 890, -0.5, open_colors['grape'][4], 0.1)
+
     for i, og_id in enumerate(['YSG_0713', 'YSG_1007']):
         ax = plt.subplot(gspec[1, i])
         f_aln = f'{args.results_dir}supplement/{og_id}_manual_aln.fna'
@@ -1048,8 +1312,13 @@ def plot_rrna_alignments(pangenome_map, metadata, args, fig_count, fig_dpi=1000)
 
         if i == 0:
             aln_plot = aln
+            block_idx = np.arange(len(aln_plot))
+            main_figs.highlight_block_haplotype(ax, block_idx, 190, 288, -0.5, open_colors['grape'][4], 0.1)
         else:
             aln_plot = aln[:78, 0:301]
+            block_idx = np.arange(len(aln_plot))
+            main_figs.highlight_block_haplotype(ax, block_idx, 150, 205, -0.5, open_colors['grape'][4], 0.1)
+
 
         species_grouping = align_utils.sort_aln_rec_ids(aln_plot, pangenome_map, metadata)
         lw = aln_plot.get_alignment_length() / 50
@@ -1699,7 +1968,8 @@ if __name__ == '__main__':
     results_dir = '../results/single-cell/'
     output_dir = '../results/single-cell/supplement/'
     metagenome_dir = f'../results/metagenome/'
-    annotations_dir = '../data/single-cell/filtered_annotations/sscs/'
+    #annotations_dir = '../data/single-cell/filtered_annotations/sscs/'
+    annotations_dir = '../data/single-cell/contig_annotations/'
     f_orthogroup_table = f'{pangenome_dir}filtered_low_copy_clustered_core_mapped_labeled_cleaned_orthogroup_table.tsv'
 
     parser = argparse.ArgumentParser()
@@ -1716,18 +1986,18 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    pangenome_map = pg_utils.PangenomeMap(f_orthogroup_table=args.orthogroup_table)
+    pangenome_map = pg_utils.PangenomeMap(gff_files_dir=args.annotations_dir, f_orthogroup_table=args.orthogroup_table)
     rng = np.random.default_rng(args.random_seed)
-    #make_genome_clusters_figures(pangenome_map, rng, args)
+    make_genome_clusters_figures(pangenome_map, rng, args)
     #fig_count = 6
-    #make_metagenome_recruitment_figures(pangenome_map, args)
+    make_metagenome_recruitment_figures(pangenome_map, args)
     #fig_count = 11
-    #make_linkage_figures(pangenome_map, args)
-    #make_gene_hybridization_figures(pangenome_map, args)
-    fig_count = 17
+    make_linkage_figures(pangenome_map, args)
+    make_gene_hybridization_figures(pangenome_map, args)
+    #fig_count = 17
     make_linkage_block_figures(pangenome_map, args)
     #fig_count = 19
-    #make_sample_variation_figures(pangenome_map, args)
-    fig_count = 21
+    make_sample_variation_figures(pangenome_map, args)
+    #fig_count = 21
     make_hybridization_qc_figures(pangenome_map, args)
 
