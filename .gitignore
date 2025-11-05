@@ -14,6 +14,6 @@
 data/
 results/*
 !results/main_figures_data
-figures/*
+figures/
 
 scripts/make_talk_figures.py
