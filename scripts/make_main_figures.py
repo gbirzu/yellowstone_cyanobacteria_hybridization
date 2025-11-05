@@ -385,22 +385,6 @@ def plot_linkage_decay(random_gene_linkage, metadata, cloud_dict, label_dict, co
     rrna_sag_ids = sag_ids[np.isin(sag_ids, rrna_pdist.index.values)] 
     rrna_pdist = rrna_pdist.loc[rrna_sag_ids, rrna_sag_ids]
 
-    '''
-    f_divergences = f'{args.data_dir}core_ogs_species_consensus_divergence_table.tsv'
-    consensus_divergence_table = pd.read_csv(f_divergences, sep='\t', index_col=0)
-    consensus_divergence_table['average'] = consensus_divergence_table.mean(axis=1)
-    rrna_aln = read_rrna_alignment(pangenome_map, args)
-    rrna_consensus_divergences = calculate_locus_consensus_divergence(rrna_aln, metadata)
-    rrna_sag_ids = np.array(rrna_consensus_divergences.index)
-    n, L = np.array(rrna_aln).shape
-
-    x = rrna_consensus_divergences.values
-    y = consensus_divergence_table.loc[rrna_sag_ids, 'average'].values
-    plot_consensus_divergence_loci_comparisons(ax2, x, y, rrna_sag_ids, metadata, fig, ax_label='')
-    '''
-    #x = utils.get_matrix_triangle_values(rrna_pdist.values, k=1)
-    #y = utils.get_matrix_triangle_values(rrna_pdist.values, k=1)
-    #plot_consensus_divergence_loci_comparisons(ax2, x, y, rrna_sag_ids, metadata, fig)
 
     species_sorted_sag_ids = metadata.sort_sags(rrna_sag_ids, by='species')
     for species in ['A', 'Bp']:
@@ -2056,7 +2040,7 @@ if __name__ == '__main__':
     # Default variables
     data_dir = '../results/main_figures_data/'
     alignment_dir = f'{data_dir}reference_alignment/'
-    figures_dir = '../figures/main_text/'
+    figures_dir = '../figures/'
     linkage_dir = f'{data_dir}linkage/'
     pangenome_dir = data_dir
     results_dir = '../results/single-cell/'

@@ -3,6 +3,7 @@ G. Birzu, H. Subrahmaniam Muralidharan, D. Goudeau, R.R. Malmstrom, D.S. Fisher,
 
 ### Usage (Unix)
 
-1. Download large data files from [Zenodo repository](https://doi.org/10.5281/zenodo.17534464) to `results/main_figues_data/`
-2. Run `tar xvzf yellowstone_sags_large_files.tar.gz` from `results/main_figues_data/`
+1. Download large data files from [Zenodo repository](https://doi.org/10.5281/zenodo.17534464) to `results/`
+2. Run `tar xvzf yellowstone_sags_large_files.tar.gz` from `results/`
+3. Copy large files using `cp -R main_figures_large_files/* main_figures_data/`
 3. Run `python make_main_figures.py` from `scripts/`
